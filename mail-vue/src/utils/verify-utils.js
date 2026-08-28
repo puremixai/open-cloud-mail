@@ -6,3 +6,12 @@ export function isEmail(email) {
 export function isDomain(str) {
     return /^(?!:\/\/)([a-zA-Z0-9-]+\.)+[a-zA-Z]{2,}$/.test(str);
 }
+
+export function getRegistrationKeyPolicy(regKeyMode, oauthPlatform) {
+    const exempt = oauthPlatform === 'linuxdo';
+
+    return {
+        visible: !exempt && (regKeyMode === 0 || regKeyMode === 2),
+        required: !exempt && regKeyMode === 0,
+    };
+}

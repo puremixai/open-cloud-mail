@@ -135,10 +135,9 @@
             </div>
           </template>
         </el-input>
-        <el-input v-if="settingStore.settings.regKey === 0" v-model="bindForm.code" :placeholder="$t('regKey')"
+        <el-input v-if="bindRegistrationKeyPolicy.visible" v-model="bindForm.code"
+                  :placeholder="$t(bindRegistrationKeyPolicy.required ? 'regKey' : 'regKeyOptional')"
                   type="text" autocomplete="off" @keyup.enter="bind"/>
-        <el-input v-if="settingStore.settings.regKey === 2" v-model="bindForm.code"
-                  :placeholder="$t('regKeyOptional')" type="text" autocomplete="off" @keyup.enter="bind"/>
         <el-button class="btn" type="primary" @click="bind" :loading="bindLoading"
         >绑定
         </el-button>
@@ -157,7 +156,7 @@ import {computed, nextTick, reactive, ref} from "vue";
 import {login} from "@/request/login.js";
 import {register} from "@/request/login.js";
 import {websiteConfig} from "@/request/setting.js";
-import {isEmail} from "@/utils/verify-utils.js";
+import {getRegistrationKeyPolicy, isEmail} from "@/utils/verify-utils.js";
 import {useSettingStore} from "@/store/setting.js";
 import {useAccountStore} from "@/store/account.js";
 import {useUserStore} from "@/store/user.js";
@@ -202,8 +201,14 @@ const oauthProviders = computed(() => {
 const bindForm = reactive({
   email: '',
   oauthUserId: '',
+  oauthPlatform: '',
   code: ''
 })
+
+const bindRegistrationKeyPolicy = computed(() => getRegistrationKeyPolicy(
+    settingStore.settings.regKey,
+    bindForm.oauthPlatform,
+))
 
 const form = reactive({
   email: '',
@@ -312,6 +317,7 @@ async function oauthGetUser() {
   if (!code || !oauthProvider.value) return
 
   const provider = oauthProvider.value
+  bindForm.oauthPlatform = provider
   oauthLoading.value = true
   sessionStorage.removeItem('oauthProvider')
   window.history.replaceState({}, '', window.location.origin + window.location.pathname)
@@ -373,7 +379,7 @@ function bind() {
     return
   }
 
-  if (settingStore.settings.regKey === 0) {
+  if (bindRegistrationKeyPolicy.value.required) {
 
     if (!bindForm.code) {
 

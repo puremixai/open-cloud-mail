@@ -22,9 +22,11 @@ import verifyRecordService from './verify-record-service';
 
 const loginService = {
 
-	async register(c, params, oauth = false) {
+	async register(c, params, options = {}) {
 
 		const { email, password, token, code } = params;
+		const { oauth = false, oauthPlatform = null } = options;
+		const skipRegistrationKey = oauth && oauthPlatform === 'linuxdo';
 
 		let { regKey, register, registerVerify, regVerifyCount, minEmailPrefix, emailPrefixFilter } = await settingService.query(c)
 
@@ -68,13 +70,13 @@ const loginService = {
 		let type = null;
 		let regKeyId = 0
 
-		if (regKey === settingConst.regKey.OPEN) {
+		if (!skipRegistrationKey && regKey === settingConst.regKey.OPEN) {
 			const result = await this.handleOpenRegKey(c, regKey, code)
 			type = result?.type
 			regKeyId = result?.regKeyId
 		}
 
-		if (regKey === settingConst.regKey.OPTIONAL) {
+		if (!skipRegistrationKey && regKey === settingConst.regKey.OPTIONAL) {
 			const result = await this.handleOpenOptional(c, regKey, code)
 			type = result?.type
 			regKeyId = result?.regKeyId
@@ -134,7 +136,7 @@ const loginService = {
 
 		await userService.updateUserInfo(c, userId, true);
 
-		if (regKey !== settingConst.regKey.CLOSE && type) {
+		if (!skipRegistrationKey && regKey !== settingConst.regKey.CLOSE && type) {
 			await regKeyService.reduceCount(c, code, 1);
 		}
 
