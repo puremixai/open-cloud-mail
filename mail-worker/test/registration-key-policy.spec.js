@@ -12,14 +12,26 @@ const dependencies = vi.hoisted(() => ({
 	selectUserById: vi.fn(),
 	selectUserByEmail: vi.fn(),
 	runOAuthUpdate: vi.fn(),
+	returnOAuthUpdate: vi.fn(),
+	insertOAuth: vi.fn(),
 }));
 
 vi.mock('../src/entity/orm', () => ({
 	default: () => ({
+		insert: () => ({
+			values: () => ({
+				returning: () => ({
+					get: dependencies.insertOAuth,
+				}),
+			}),
+		}),
 		update: () => ({
 			set: () => ({
 				where: () => ({
 					run: dependencies.runOAuthUpdate,
+					returning: () => ({
+						get: dependencies.returnOAuthUpdate,
+					}),
 				}),
 			}),
 		}),
@@ -93,6 +105,8 @@ describe('registration key policy', () => {
 			email: registration.email,
 		});
 		dependencies.runOAuthUpdate.mockResolvedValue(undefined);
+		dependencies.insertOAuth.mockImplementation(async values => values);
+		dependencies.returnOAuthUpdate.mockResolvedValue(undefined);
 	});
 
 	afterEach(() => {
@@ -110,6 +124,13 @@ describe('registration key policy', () => {
 		await expect(loginService.register(context, registration)).rejects.toMatchObject({
 			name: 'BizError',
 		});
+	});
+
+	it('allows a verified XAI OAuth user to register without a registration key', async () => {
+		await expect(loginService.register(context, registration, {
+			oauth: true,
+			oauthPlatform: 'xai',
+		})).resolves.toEqual({ regVerifyOpen: false });
 	});
 
 	it('still requires a registration key for other OAuth providers', async () => {
@@ -139,13 +160,59 @@ describe('registration key policy', () => {
 			},
 		});
 	});
+
+	it('keeps equal external subjects isolated by OAuth provider', async () => {
+		vi.spyOn(oauthService, 'getById').mockImplementation(async (c, oauthUserId, platform) => {
+			if (oauthUserId === 'same-subject' && platform !== 'xai') {
+				return { oauthUserId, platform: 'linuxdo', userId: 99 };
+			}
+			return null;
+		});
+		dependencies.insertOAuth.mockResolvedValue({
+			oauthUserId: 'same-subject',
+			platform: 'xai',
+			userId: 0,
+		});
+
+		await expect(oauthService.saveUser(context, {
+			oauthUserId: 'same-subject',
+			platform: 'xai',
+		})).resolves.toMatchObject({
+			platform: 'xai',
+			userId: 0,
+		});
+	});
+
+	it('refuses to bind an XAI identity through the legacy body-supplied OAuth endpoint', async () => {
+		vi.spyOn(oauthService, 'getById').mockResolvedValue({
+			oauthUserId: 'usr_xai_123',
+			platform: 'xai',
+			userId: 0,
+		});
+		vi.spyOn(loginService, 'login').mockResolvedValue('unexpected-token');
+
+		await expect(oauthService.bindUser(context, {
+			email: registration.email,
+			oauthUserId: 'usr_xai_123',
+			oauthPlatform: 'xai',
+		})).rejects.toMatchObject({
+			name: 'BizError',
+			code: 403,
+			message: 'XAI 用户必须通过已验证的登录会话绑定邮箱',
+		});
+		expect(dependencies.insertUser).not.toHaveBeenCalled();
+	});
 });
 
 describe('OAuth binding registration key fields', () => {
-	it('hides the registration key for Linux.do without changing other providers', async () => {
+	it('hides the registration key for verified Linux.do and XAI users without changing other providers', async () => {
 		const verifyUtils = await import('../../mail-vue/src/utils/verify-utils.js');
 
 		expect(verifyUtils.getRegistrationKeyPolicy?.(0, 'linuxdo')).toEqual({
+			visible: false,
+			required: false,
+		});
+		expect(verifyUtils.getRegistrationKeyPolicy?.(0, 'xai')).toEqual({
 			visible: false,
 			required: false,
 		});

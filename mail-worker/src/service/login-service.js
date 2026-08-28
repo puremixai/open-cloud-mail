@@ -26,7 +26,7 @@ const loginService = {
 
 		const { email, password, token, code } = params;
 		const { oauth = false, oauthPlatform = null } = options;
-		const skipRegistrationKey = oauth && oauthPlatform === 'linuxdo';
+		const skipRegistrationKey = oauth && ['linuxdo', 'xai'].includes(oauthPlatform);
 
 		let { regKey, register, registerVerify, regVerifyCount, minEmailPrefix, emailPrefixFilter } = await settingService.query(c)
 

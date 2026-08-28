@@ -12,6 +12,14 @@ export function oauthGoogleLogin(code, redirectUri) {
     return http.post('/oauth/google/login',{code, redirectUri})
 }
 
+export function oauthXaiComplete() {
+    return http.post('/oauth/xai/complete')
+}
+
+export function oauthXaiBindUser(form) {
+    return http.put('/oauth/xai/bindUser', form)
+}
+
 export function oauthBindUser(form) {
     return http.put('/oauth/bindUser', form)
 }
