@@ -9,6 +9,9 @@ import BizError from '../error/biz-error';
 import {t} from '../i18n/i18n'
 import verifyRecordService from './verify-record-service';
 import userContext from '../security/user-context';
+import {sealValue} from '../utils/sealed-value';
+
+const XAI_SECRET_PURPOSE = 'xai-client-secret';
 
 const settingService = {
 
@@ -67,10 +70,11 @@ const settingService = {
 
 	async get(c, showSiteKey = false) {
 
-		const [settingRow, recordList] = await Promise.all([
+		const [storedSetting, recordList] = await Promise.all([
 			await this.query(c),
 			verifyRecordService.selectListByIP(c)
 		]);
+		const settingRow = this.sanitizeForAdmin(storedSetting);
 
 
 		if (!showSiteKey) {
@@ -111,23 +115,52 @@ const settingService = {
 
 	async set(c, params) {
 		const settingData = await this.query(c);
-		let resendTokens = { ...settingData.resendTokens, ...params.resendTokens };
+		const update = await this.prepareUpdate(c, settingData, params);
+
+		await orm(c).update(setting).set(update).returning().get();
+		await this.refresh(c);
+	},
+
+	async prepareUpdate(c, settingData, params) {
+		const update = { ...params };
+		let resendTokens = { ...settingData.resendTokens, ...update.resendTokens };
 		Object.keys(resendTokens).forEach(domain => {
 			if (!resendTokens[domain]) delete resendTokens[domain];
 		});
 
-		if (Array.isArray(params.emailPrefixFilter)) {
-			params.emailPrefixFilter = params.emailPrefixFilter + '';
+		if (Array.isArray(update.emailPrefixFilter)) {
+			update.emailPrefixFilter = update.emailPrefixFilter + '';
 		}
 
-		if (Array.isArray(params.aiCodeFilter)) {
-			params.aiCodeFilter = params.aiCodeFilter + '';
+		if (Array.isArray(update.aiCodeFilter)) {
+			update.aiCodeFilter = update.aiCodeFilter + '';
 		}
 
-		params.resendTokens = JSON.stringify(resendTokens);
+		update.resendTokens = JSON.stringify(resendTokens);
 
-		await orm(c).update(setting).set({ ...params }).returning().get();
-		await this.refresh(c);
+		if (Object.hasOwn(update, 'xaiClientSecret')) {
+			const clientSecret = typeof update.xaiClientSecret === 'string' ? update.xaiClientSecret.trim() : '';
+			if (clientSecret) {
+				update.xaiClientSecret = await sealValue(c.env.jwt_secret, XAI_SECRET_PURPOSE, clientSecret);
+			} else {
+				delete update.xaiClientSecret;
+			}
+		}
+
+		if (typeof update.xaiClientId === 'string') update.xaiClientId = update.xaiClientId.trim();
+		if (typeof update.xaiRedirectUri === 'string') update.xaiRedirectUri = update.xaiRedirectUri.trim();
+
+		return update;
+	},
+
+	sanitizeForAdmin(settingRow) {
+		const sanitized = {
+			...settingRow,
+			resendTokens: { ...(settingRow.resendTokens || {}) },
+		};
+		sanitized.xaiClientSecretConfigured = Boolean(sanitized.xaiClientSecret);
+		delete sanitized.xaiClientSecret;
+		return sanitized;
 	},
 
 	async deleteBackground(c) {
@@ -220,6 +253,7 @@ const settingService = {
 			githubSwitch: settingRow.githubSwitch,
 			googleClientId: settingRow.googleClientId,
 			googleSwitch: settingRow.googleSwitch,
+			xaiSwitch: settingRow.xaiSwitch,
 			minEmailPrefix: settingRow.minEmailPrefix,
 			projectLink: settingRow.projectLink
 		};

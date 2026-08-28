@@ -32,8 +32,36 @@ const dbInit = {
 		await this.v3_1DB(c);
 		await this.v3_2DB(c);
 		await this.v3_3DB(c);
+		await this.v3_4DB(c);
 		await settingService.refresh(c);
 		return c.text('success');
+	},
+
+	async v3_4DB(c) {
+		try {
+			await c.env.db.batch([
+				c.env.db.prepare(`ALTER TABLE setting ADD COLUMN xai_client_id TEXT NOT NULL DEFAULT '';`),
+				c.env.db.prepare(`ALTER TABLE setting ADD COLUMN xai_client_secret TEXT NOT NULL DEFAULT '';`),
+				c.env.db.prepare(`ALTER TABLE setting ADD COLUMN xai_redirect_uri TEXT NOT NULL DEFAULT '';`),
+				c.env.db.prepare(`ALTER TABLE setting ADD COLUMN xai_switch INTEGER NOT NULL DEFAULT 1;`),
+				c.env.db.prepare(`
+					CREATE TABLE IF NOT EXISTS oauth_session (
+						state TEXT PRIMARY KEY,
+						platform TEXT NOT NULL,
+						nonce TEXT NOT NULL,
+						code_verifier TEXT NOT NULL,
+						redirect_uri TEXT NOT NULL,
+						status TEXT NOT NULL DEFAULT 'pending',
+						oauth_user_id TEXT NOT NULL DEFAULT '',
+						create_time INTEGER NOT NULL,
+						expires_at INTEGER NOT NULL
+					)
+				`),
+				c.env.db.prepare(`CREATE INDEX IF NOT EXISTS idx_oauth_session_expires ON oauth_session(expires_at)`),
+			]);
+		} catch (e) {
+			console.warn(`跳过 XAI OAuth 字段或会话表：${e.message}`);
+		}
 	},
 
 	async v3_3DB(c) {

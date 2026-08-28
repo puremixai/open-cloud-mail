@@ -6,13 +6,15 @@ import emailService from './service/email-service';
 import kvObjService from './service/kv-obj-service';
 import oauthService from './service/oauth-service';
 import analysisService from './service/analysis-service';
+import xaiOAuthService from './service/xai-oauth-service';
+import { stripApiPrefix } from './utils/api-path';
 export default {
 	 async fetch(req, env, ctx) {
 
 		const url = new URL(req.url)
 
 		if (url.pathname.startsWith('/api/')) {
-			url.pathname = url.pathname.replace('/api', '')
+			url.pathname = stripApiPrefix(url.pathname)
 			req = new Request(url.toString(), req)
 			return app.fetch(req, env, ctx);
 		}
@@ -36,5 +38,6 @@ export default {
 		await emailService.autoClean({ env })
 		await analysisService.refreshEchartsCache({ env })
 		await oauthService.clearNoBindOathUser({ env })
+		await xaiOAuthService.clearExpired({ env })
 	},
 };

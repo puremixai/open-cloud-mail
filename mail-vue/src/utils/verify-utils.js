@@ -8,7 +8,7 @@ export function isDomain(str) {
 }
 
 export function getRegistrationKeyPolicy(regKeyMode, oauthPlatform) {
-    const exempt = oauthPlatform === 'linuxdo';
+    const exempt = ['linuxdo', 'xai'].includes(oauthPlatform);
 
     return {
         visible: !exempt && (regKeyMode === 0 || regKeyMode === 2),

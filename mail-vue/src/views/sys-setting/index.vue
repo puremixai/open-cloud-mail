@@ -523,10 +523,15 @@
         </form>
       </el-dialog>
       <el-dialog v-model="oauthSettingShow" :title="$t('oauthSetting') + ' - ' + oauthForm.label" width="340"
-                 @closed="oauthForm.clientId = ''; oauthForm.clientSecret = ''; oauthForm.switch = 1">
+                 @closed="resetOauthForm">
         <div class="dialog-content">
           <el-input type="text" :placeholder="$t('clientId')" v-model="oauthForm.clientId"/>
-          <el-input type="text" style="margin-top: 15px" :placeholder="$t('clientSecret')" v-model="oauthForm.clientSecret"/>
+          <el-input :type="oauthForm.key === 'xai' ? 'password' : 'text'" style="margin-top: 15px"
+                    :placeholder="oauthForm.key === 'xai' && oauthForm.secretConfigured ? '已配置，留空不修改' : $t('clientSecret')"
+                    autocomplete="new-password" v-model="oauthForm.clientSecret"/>
+          <el-input v-if="oauthForm.key === 'xai'" type="text" style="margin-top: 15px"
+                    placeholder="https://mail.example.com/api/oauth/xai/callback"
+                    v-model="oauthForm.redirectUri"/>
         </div>
         <template #footer>
           <div class="dialog-footer">
@@ -959,6 +964,7 @@ const oauthPlatforms = [
   { key: 'google', label: 'Google', icon: 'devicon:google', iconType: 'iconify' },
   { key: 'github', label: 'GitHub', icon: 'codicon:github-inverted', iconType: 'iconify' },
   { key: 'linuxdo', label: 'LinuxDo', icon: '/image/linuxdo.webp', iconType: 'image' },
+  { key: 'xai', label: 'XAI', icon: 'mdi:robot-outline', iconType: 'iconify' },
 ]
 const oauthSettingShow = ref(false)
 const oauthForm = reactive({
@@ -966,6 +972,8 @@ const oauthForm = reactive({
   label: '',
   clientId: '',
   clientSecret: '',
+  redirectUri: '',
+  secretConfigured: false,
   switch: 1,
 })
 
@@ -1466,7 +1474,11 @@ function openOauthSetting(p) {
   oauthForm.key = p.key
   oauthForm.label = p.label
   oauthForm.clientId = setting.value[p.key + 'ClientId'] || ''
-  oauthForm.clientSecret = setting.value[p.key + 'ClientSecret'] || ''
+  oauthForm.clientSecret = p.key === 'xai' ? '' : (setting.value[p.key + 'ClientSecret'] || '')
+  oauthForm.redirectUri = p.key === 'xai'
+      ? (setting.value.xaiRedirectUri || `${window.location.origin}/api/oauth/xai/callback`)
+      : ''
+  oauthForm.secretConfigured = p.key === 'xai' && setting.value.xaiClientSecretConfigured === true
   oauthForm.switch = setting.value[p.key + 'Switch'] ?? 1
   oauthSettingShow.value = true
 }
@@ -1474,9 +1486,24 @@ function openOauthSetting(p) {
 function saveOauth() {
   const form = {}
   form[oauthForm.key + 'ClientId'] = oauthForm.clientId
-  form[oauthForm.key + 'ClientSecret'] = oauthForm.clientSecret
+  if (oauthForm.key !== 'xai' || oauthForm.clientSecret.trim()) {
+    form[oauthForm.key + 'ClientSecret'] = oauthForm.clientSecret
+  }
+  if (oauthForm.key === 'xai') {
+    form.xaiRedirectUri = oauthForm.redirectUri
+  }
   form[oauthForm.key + 'Switch'] = oauthForm.switch
   editSetting(form)
+}
+
+function resetOauthForm() {
+  oauthForm.key = ''
+  oauthForm.label = ''
+  oauthForm.clientId = ''
+  oauthForm.clientSecret = ''
+  oauthForm.redirectUri = ''
+  oauthForm.secretConfigured = false
+  oauthForm.switch = 1
 }
 
 function saveTurnstileKey() {

@@ -166,7 +166,14 @@ import {cvtR2Url} from "@/utils/convert.js";
 import {loginUserInfo} from "@/request/my.js";
 import {permsToRouter} from "@/perm/perm.js";
 import {useI18n} from "vue-i18n";
-import {oauthBindUser, oauthLinuxDoLogin, oauthGithubLogin, oauthGoogleLogin} from "@/request/ouath.js";
+import {
+  oauthBindUser,
+  oauthGithubLogin,
+  oauthGoogleLogin,
+  oauthLinuxDoLogin,
+  oauthXaiBindUser,
+  oauthXaiComplete,
+} from "@/request/ouath.js";
 
 const {t} = useI18n();
 const accountStore = useAccountStore();
@@ -194,6 +201,7 @@ const oauthProviders = computed(() => {
     { key: 'google', label: 'Google', icon: 'devicon:google', iconType: 'iconify' },
     { key: 'github', label: 'GitHub', icon: 'codicon:github-inverted', iconType: 'iconify' },
     { key: 'linuxdo', label: 'LinuxDo', icon: '/image/linuxdo.webp', iconType: 'image' },
+    { key: 'xai', label: 'XAI', icon: 'mdi:robot-outline', iconType: 'iconify' },
   ]
   return allProviders.filter(p => settingStore.settings[p.key + 'Switch'] === 0)
 })
@@ -291,6 +299,11 @@ const getEmailName = (email) => {
 }
 
 function oauthLogin(provider) {
+  if (provider === 'xai') {
+    window.location.href = `${window.location.origin}/api/oauth/xai/start`
+    return
+  }
+
   const clientId = settingStore.settings[provider + 'ClientId']
   const redirectUri = encodeURIComponent(window.location.origin + '/login')
   sessionStorage.setItem('oauthProvider', provider)
@@ -313,6 +326,37 @@ oauthGetUser();
 async function oauthGetUser() {
 
   const params = new URLSearchParams(window.location.search)
+  if (params.get('oauth') === 'xai') {
+    bindForm.oauthPlatform = 'xai'
+    oauthLoading.value = true
+    const error = params.get('error')
+    window.history.replaceState({}, '', window.location.origin + window.location.pathname)
+
+    if (error) {
+      const messages = {
+        access_denied: '已取消 XAI 授权',
+        account_unavailable: 'XAI 账号当前不可登录',
+        provider_error: 'XAI 授权服务返回错误',
+        verification_failed: 'XAI 登录验证失败，请重试',
+      }
+      ElMessage({
+        message: messages[error] || 'XAI 登录失败，请重试',
+        type: 'error',
+        plain: true,
+      })
+      oauthLoading.value = false
+      return
+    }
+
+    try {
+      const data = await oauthXaiComplete()
+      handleOauthLoginResult(data, 'xai')
+    } catch {
+      oauthLoading.value = false
+    }
+    return
+  }
+
   const code = params.get('code')
   if (!code || !oauthProvider.value) return
 
@@ -323,25 +367,29 @@ async function oauthGetUser() {
   window.history.replaceState({}, '', window.location.origin + window.location.pathname)
 
   loginFns[provider](code, window.location.origin + '/login').then(data => {
-
-    bindForm.oauthUserId = data.userInfo.oauthUserId;
-
-    if (!data.token) {
-      showBindForm.value = true
-      oauthLoading.value = false
-      ElMessage({
-        message: '请注册绑定一个邮箱',
-        type: 'warning',
-        duration: 4000,
-        plain: true,
-      })
-      return;
-    }
-
-    saveToken(data.token);
+    handleOauthLoginResult(data, provider)
   }).catch(() => {
     oauthLoading.value = false
   })
+}
+
+function handleOauthLoginResult(data, provider) {
+  bindForm.oauthPlatform = provider
+  bindForm.oauthUserId = data.userInfo?.oauthUserId || ''
+
+  if (!data.token) {
+    showBindForm.value = true
+    oauthLoading.value = false
+    ElMessage({
+      message: '请注册绑定一个邮箱',
+      type: 'warning',
+      duration: 4000,
+      plain: true,
+    })
+    return
+  }
+
+  saveToken(data.token)
 }
 
 function bind() {
@@ -393,10 +441,18 @@ function bind() {
 
   }
 
-  const form = {email, oauthUserId: bindForm.oauthUserId, code: bindForm.code}
+  const form = {
+    email,
+    oauthUserId: bindForm.oauthUserId,
+    oauthPlatform: bindForm.oauthPlatform,
+    code: bindForm.code,
+  }
 
   bindLoading.value = true
-  oauthBindUser(form).then(data => {
+  const isXai = bindForm.oauthPlatform === 'xai'
+  const bindRequest = isXai ? oauthXaiBindUser : oauthBindUser
+  const bindPayload = isXai ? {email, code: bindForm.code} : form
+  bindRequest(bindPayload).then(data => {
     saveToken(data.token)
   }).catch(() => {
     bindLoading.value = false

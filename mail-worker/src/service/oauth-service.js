@@ -1,7 +1,7 @@
 import BizError from "../error/biz-error";
 import orm from "../entity/orm";
 import {oauth} from "../entity/oauth";
-import { eq, inArray } from 'drizzle-orm';
+import { and, eq, inArray } from 'drizzle-orm';
 import userService from "./user-service";
 import loginService from "./login-service";
 import cryptoUtils from "../utils/crypto-utils";
@@ -12,9 +12,22 @@ const oauthService = {
 
 	async bindUser(c, params) {
 
-		const { email, oauthUserId, code } = params;
+		const { oauthUserId, oauthPlatform } = params;
 
-		const oauthRow = await this.getById(c, oauthUserId);
+		const oauthRow = await this.getById(c, oauthUserId, oauthPlatform);
+		if (oauthRow?.platform === 'xai') {
+			throw new BizError('XAI 用户必须通过已验证的登录会话绑定邮箱', 403);
+		}
+		return this.bindVerifiedUser(c, oauthRow, params);
+	},
+
+	async bindVerifiedUser(c, oauthRow, params) {
+
+		const { email, code } = params;
+
+		if (!oauthRow) {
+			throw new BizError('OAuth 用户不存在')
+		}
 
 		let userRow = await userService.selectByIdIncludeDel(c, oauthRow.userId);
 
@@ -29,7 +42,10 @@ const oauthService = {
 
 		userRow = await userService.selectByEmail(c, email);
 
-		orm(c).update(oauth).set({ userId: userRow.userId }).where(eq(oauth.oauthUserId, oauthUserId)).run();
+		await orm(c).update(oauth).set({ userId: userRow.userId }).where(and(
+			eq(oauth.oauthUserId, oauthRow.oauthUserId),
+			eq(oauth.platform, oauthRow.platform),
+		)).run();
 		const jwtToken = await loginService.login(c, { email, password: null }, true);
 
 		return { userInfo: oauthRow, token: jwtToken}
@@ -197,12 +213,15 @@ const oauthService = {
 
 	async saveUser(c, userInfo) {
 
-		const userInfoRow = await this.getById(c, userInfo.oauthUserId);
+		const userInfoRow = await this.getById(c, userInfo.oauthUserId, userInfo.platform);
 
 		if (!userInfoRow) {
 			return await orm(c).insert(oauth).values(userInfo).returning().get();
 		} else {
-			return await orm(c).update(oauth).set(userInfo).where(eq(oauth.oauthUserId, userInfo.oauthUserId)).returning().get();
+			return await orm(c).update(oauth).set(userInfo).where(and(
+				eq(oauth.oauthUserId, userInfo.oauthUserId),
+				eq(oauth.platform, userInfo.platform),
+			)).returning().get();
 		}
 
 	},
@@ -213,8 +232,11 @@ const oauthService = {
 		}
 	},
 
-	async getById(c, oauthUserId) {
-		return await orm(c).select().from(oauth).where(eq(oauth.oauthUserId, oauthUserId)).get();
+	async getById(c, oauthUserId, platform) {
+		const predicate = platform
+			? and(eq(oauth.oauthUserId, oauthUserId), eq(oauth.platform, platform))
+			: eq(oauth.oauthUserId, oauthUserId);
+		return await orm(c).select().from(oauth).where(predicate).get();
 	},
 
 	async deleteByUserId(c, userId) {
