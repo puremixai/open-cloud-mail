@@ -327,6 +327,34 @@ html.win95 .writer-box .writer {
     border-radius: 0 !important;
     box-shadow: inset -1px -1px #0a0a0a, inset 1px 1px #ffffff, inset -2px -2px #808080, inset 2px 2px #dfdfdf;
 }
+/* 撰写窗口（自定义组件）：窗口凸起 + 深蓝标题栏 */
+html.win95 .send .write-box {
+    background: #c0c0c0 !important;
+    border: 1px solid #ffffff;
+    box-shadow: inset -1px -1px #0a0a0a, inset 1px 1px #dfdfdf, inset -2px -2px #808080, inset 2px 2px #ffffff, 4px 4px 0 rgba(0, 0, 0, 0.35) !important;
+}
+html.win95 .send .write-box .title {
+    background: #000080;
+    margin: -15px -15px 10px;
+    padding: 6px 15px;
+    color: #ffffff;
+}
+html.win95 .send .write-box .title .title-text,
+html.win95 .send .write-box .title .sender,
+html.win95 .send .write-box .title .sender-name,
+html.win95 .send .write-box .title .send-email {
+    color: #ffffff !important;
+}
+/* 列表工具条：凹陷分隔 + 灰底 */
+html.win95 .email-container .header-actions {
+    background: #c0c0c0;
+    box-shadow: inset 0 -2px 0 #808080;
+}
+/* 邮件列表容器：白色凹陷 */
+html.win95 .email-container .scroll {
+    background: #ffffff;
+    box-shadow: inset -1px -1px #ffffff, inset 1px 1px #808080, inset -2px -2px #dfdfdf, inset 2px 2px #0a0a0a;
+}
 /* 头部圆形头像 / 图标底 → 方形 */
 html.win95 .toolbar .icon-item { border-radius: 0 !important; }
 html.win95 .toolbar .icon-item:hover { background: #dfdfdf; }
