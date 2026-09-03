@@ -245,6 +245,8 @@ const zh = {
     restoreSuccessMsg: '恢复成功',
     banRestore: '确认禁用 {msg} 吗？',
     logOut: '退出',
+    win95Mode: 'Windows 95 复古模式',
+    win95Exit: '退出 Windows 95 模式',
     clearContentConfirm: '确定要清空所有内容吗？',
     emptyRecipientMsg: '收件人邮箱地址不能为空',
     emptySubjectMsg: '主题不能为空',

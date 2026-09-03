@@ -1,0 +1,764 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<title>收件箱 - Windows 95 邮件</title>
+<style>
+/* ============ 基础 ============ */
+*{box-sizing:border-box;margin:0;padding:0;border-radius:0!important}
+html,body{height:100%;overflow:hidden}
+body{
+  font:12px "MS Sans Serif",Tahoma,"Microsoft YaHei","SimSun",sans-serif;
+  background:#008080;color:#000;
+  -webkit-user-select:none;user-select:none;cursor:default;
+}
+button,input,textarea{font:inherit;color:#000}
+svg{display:block}
+
+/* ============ 经典 3D 凹凸边框 ============ */
+/* 凸起（按钮/面板）: 高光 #fff/#dfdfdf，阴影 #808080/#0a0a0a */
+.raised{background:#c0c0c0;box-shadow:inset -1px -1px #0a0a0a,inset 1px 1px #ffffff,inset -2px -2px #808080,inset 2px 2px #dfdfdf}
+/* 凹陷（输入框/列表容器）*/
+.sunken{background:#fff;box-shadow:inset -1px -1px #ffffff,inset 1px 1px #808080,inset -2px -2px #dfdfdf,inset 2px 2px #0a0a0a}
+
+/* ============ 桌面 ============ */
+#desktop{position:fixed;inset:0 0 28px 0;overflow:hidden}
+.dicon{position:absolute;width:74px;text-align:center;color:#fff;padding:2px}
+.dicon svg{margin:0 auto}
+.dicon span{display:inline-block;margin-top:3px;padding:1px 3px;text-shadow:1px 1px 0 #000}
+.dicon.sel span{background:#000080;outline:1px dotted #ffff00}
+
+/* ============ 窗口 ============ */
+.window{
+  position:absolute;background:#c0c0c0;padding:3px;
+  box-shadow:inset -1px -1px #0a0a0a,inset 1px 1px #dfdfdf,inset -2px -2px #808080,inset 2px 2px #ffffff;
+  display:flex;flex-direction:column;
+}
+.window.maximized{left:0!important;top:0!important;width:100%!important;height:100%!important}
+
+.titlebar{
+  height:20px;background:#000080;display:flex;align-items:center;gap:4px;
+  padding:0 2px 0 3px;flex:0 0 auto;cursor:default;
+}
+.window.inactive .titlebar{background:#808080}
+.titlebar .ttext{color:#fff;font-weight:bold;flex:1;overflow:hidden;white-space:nowrap;text-overflow:ellipsis}
+.tbtn{
+  width:16px;height:14px;background:#c0c0c0;border:none;cursor:pointer;
+  box-shadow:inset -1px -1px #0a0a0a,inset 1px 1px #ffffff,inset -2px -2px #808080,inset 2px 2px #dfdfdf;
+  display:flex;align-items:center;justify-content:center;padding:0;
+}
+.tbtn:active{box-shadow:inset -1px -1px #ffffff,inset 1px 1px #0a0a0a,inset -2px -2px #dfdfdf,inset 2px 2px #808080}
+.tbtn:active svg{transform:translate(1px,1px)}
+.tbtns{display:flex;gap:0}
+
+/* ============ 菜单栏 ============ */
+.menubar{display:flex;padding:1px 0;flex:0 0 auto;position:relative}
+.menu-item{position:relative;padding:3px 8px}
+.menu-item:hover,.menu-item.open{background:#000080;color:#fff}
+.dropdown{
+  display:none;position:absolute;top:100%;left:0;min-width:150px;background:#c0c0c0;padding:2px;z-index:50;
+  box-shadow:inset -1px -1px #0a0a0a,inset 1px 1px #dfdfdf,inset -2px -2px #808080,inset 2px 2px #ffffff;
+}
+.menu-item.open .dropdown{display:block}
+.dropdown .ditem{padding:4px 20px 4px 16px;white-space:nowrap;color:#000}
+.dropdown .ditem:hover{background:#000080;color:#fff}
+.dropdown .ditem.disabled{color:#808080;text-shadow:1px 1px 0 #fff}
+.dropdown .ditem.disabled:hover{background:transparent;color:#808080}
+.dropdown .dsep{height:0;border-top:1px solid #808080;border-bottom:1px solid #fff;margin:3px 2px}
+
+/* ============ 工具栏 ============ */
+.toolbar{display:flex;align-items:center;gap:2px;padding:2px 2px;flex:0 0 auto}
+.btn{
+  background:#c0c0c0;border:none;cursor:pointer;padding:3px 8px;
+  box-shadow:inset -1px -1px #0a0a0a,inset 1px 1px #ffffff,inset -2px -2px #808080,inset 2px 2px #dfdfdf;
+  display:inline-flex;align-items:center;gap:5px;
+}
+.btn:active:not(:disabled){box-shadow:inset -1px -1px #ffffff,inset 1px 1px #0a0a0a,inset -2px -2px #dfdfdf,inset 2px 2px #808080}
+.btn:active:not(:disabled) .bi{transform:translate(1px,1px)}
+.btn .bi{display:inline-flex;align-items:center;gap:5px}
+.btn:disabled{color:#808080;text-shadow:1px 1px 0 #fff;cursor:default}
+.btn:disabled svg{opacity:.45}
+.toolbar .gap{width:6px;border-left:1px solid #808080;border-right:1px solid #fff;height:20px;margin:0 2px}
+.toolbar .spacer{flex:1}
+.searchbox{display:flex;align-items:center;gap:4px}
+.searchbox input{
+  width:190px;background:#fff;border:none;padding:3px 5px;outline:none;
+  box-shadow:inset -1px -1px #ffffff,inset 1px 1px #808080,inset -2px -2px #dfdfdf,inset 2px 2px #0a0a0a;
+}
+.searchbox input::placeholder{color:#808080}
+
+/* ============ 邮件列表 ============ */
+.listwrap{flex:1;min-height:0;padding:3px;display:flex;flex-direction:column}
+.listbox{flex:1;min-height:0;overflow:auto;background:#fff;
+  box-shadow:inset -1px -1px #ffffff,inset 1px 1px #808080,inset -2px -2px #dfdfdf,inset 2px 2px #0a0a0a}
+table.mail{width:100%;border-collapse:collapse;table-layout:fixed}
+table.mail th{
+  background:#c0c0c0;font-weight:normal;text-align:left;padding:3px 6px;position:sticky;top:0;z-index:2;
+  box-shadow:inset -1px -1px #808080,inset 1px 1px #ffffff;
+}
+table.mail td{padding:3px 6px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;border-bottom:1px solid #f2f2f2}
+table.mail tbody tr{cursor:default}
+table.mail tbody tr:hover td{background:#f0f0f8}
+table.mail tbody tr.sel td{background:#000080;color:#fff}
+table.mail tbody tr.unread td{font-weight:bold}
+table.mail .cc{text-align:center;width:30px}
+.dotcell{display:inline-block;vertical-align:-1px;margin-right:4px}
+.emptyMsg{text-align:center;color:#808080;padding:30px 0}
+.dcell{color:#808080;font-style:normal}
+
+/* 原生 input 复选框，复古凹槽外观 */
+input[type=checkbox]{
+  appearance:none;-webkit-appearance:none;width:13px;height:13px;background:#fff;margin:0;cursor:pointer;vertical-align:-2px;
+  box-shadow:inset -1px -1px #ffffff,inset 1px 1px #808080,inset -2px -2px #dfdfdf,inset 2px 2px #0a0a0a;
+}
+input[type=checkbox]:checked{
+  background:#fff url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 13 13'%3E%3Cpath d='M2.5 6.5l3 3 5-6' stroke='%23000' stroke-width='2' fill='none'/%3E%3C/svg%3E") center no-repeat;
+}
+input[type=text],textarea{
+  background:#fff;border:none;outline:none;padding:3px 5px;
+  box-shadow:inset -1px -1px #ffffff,inset 1px 1px #808080,inset -2px -2px #dfdfdf,inset 2px 2px #0a0a0a;
+}
+
+/* ============ 状态栏 ============ */
+.statusbar{display:flex;gap:2px;padding:0 2px 1px;flex:0 0 auto}
+.sfield{
+  background:#c0c0c0;padding:3px 8px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;
+  box-shadow:inset -1px -1px #ffffff,inset 1px 1px #808080;
+}
+.sfield.stretch{flex:1}
+.pagerctl{display:inline-flex;align-items:center;gap:4px}
+.pagerctl .btn{padding:1px 6px}
+
+/* ============ 撰写 / 阅读 ============ */
+.formarea{padding:6px;flex:1;display:flex;flex-direction:column;gap:5px;min-height:0}
+.frow{display:flex;align-items:center;gap:6px;flex:0 0 auto}
+.frow label{width:52px;text-align:right;flex:0 0 auto}
+.frow input[type=text]{flex:1}
+.mailbody{flex:1;min-height:0;overflow:auto;background:#fff;padding:8px;line-height:1.6;white-space:pre-wrap;
+  box-shadow:inset -1px -1px #ffffff,inset 1px 1px #808080,inset -2px -2px #dfdfdf,inset 2px 2px #0a0a0a}
+.readerhead{background:#fff;padding:6px 8px;margin:6px;line-height:1.7;
+  box-shadow:inset -1px -1px #ffffff,inset 1px 1px #808080,inset -2px -2px #dfdfdf,inset 2px 2px #0a0a0a}
+.btnrow{display:flex;gap:6px;padding:0 6px 6px;flex:0 0 auto}
+.btnrow .end{margin-left:auto}
+
+/* ============ 对话框 ============ */
+.dlgtext{padding:14px 16px;line-height:1.6;max-width:340px;display:flex;gap:12px;align-items:flex-start}
+.dlgbtns{display:flex;justify-content:center;gap:8px;padding:0 10px 12px}
+.dlgbtns .btn{min-width:70px;justify-content:center}
+
+/* ============ 任务栏 ============ */
+#taskbar{
+  position:fixed;left:0;right:0;bottom:0;height:28px;background:#c0c0c0;z-index:9000;
+  display:flex;align-items:center;gap:4px;padding:2px 2px;
+  box-shadow:inset 0 1px #ffffff,inset 0 2px #dfdfdf;
+}
+#startBtn{font-weight:bold;padding:2px 8px 2px 5px}
+#startBtn.on{box-shadow:inset -1px -1px #ffffff,inset 1px 1px #0a0a0a,inset -2px -2px #dfdfdf,inset 2px 2px #808080}
+.taskbtn{max-width:160px;justify-content:flex-start;overflow:hidden}
+.taskbtn.on{box-shadow:inset -1px -1px #ffffff,inset 1px 1px #0a0a0a,inset -2px -2px #dfdfdf,inset 2px 2px #808080;font-weight:bold;background:#c0c0c0 url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='4' height='4'%3E%3Crect width='4' height='4' fill='%23fff'/%3E%3Crect width='2' height='2' fill='%23c0c0c0'/%3E%3Crect x='2' y='2' width='2' height='2' fill='%23c0c0c0'/%3E%3C/svg%3E")}
+#tasks{flex:1;display:flex;gap:3px;overflow:hidden}
+.tray{display:flex;align-items:center;gap:6px;padding:2px 8px;
+  box-shadow:inset -1px -1px #ffffff,inset 1px 1px #808080}
+.tray svg{opacity:.8}
+
+/* ============ 开始菜单 ============ */
+#startMenu{
+  position:fixed;left:2px;bottom:30px;width:190px;background:#c0c0c0;z-index:9500;display:none;padding:3px;
+  box-shadow:inset -1px -1px #0a0a0a,inset 1px 1px #dfdfdf,inset -2px -2px #808080,inset 2px 2px #ffffff;
+}
+#startMenu.on{display:flex}
+#startMenu .side{
+  width:24px;background:#000080;color:#c0c0c0;writing-mode:vertical-rl;transform:rotate(180deg);
+  font-weight:bold;font-size:15px;text-align:right;padding:6px 3px;letter-spacing:1px;flex:0 0 auto;
+}
+#startMenu .items{flex:1;display:flex;flex-direction:column}
+#startMenu .ditem{display:flex;align-items:center;gap:8px;padding:6px 10px}
+#startMenu .dsep{margin:3px 4px}
+#startMenu .right{margin-left:auto;font-size:10px;color:#404040}
+#startMenu .ditem:hover .right{color:#fff}
+
+/* ============ 关机画面 ============ */
+#shutdown{
+  position:fixed;inset:0;background:#000;z-index:99999;display:none;
+  align-items:center;justify-content:center;color:#ffa500;font-size:18px;font-weight:bold;
+}
+
+/* ============ Win95 滚动条 ============ */
+::-webkit-scrollbar{width:16px;height:16px}
+::-webkit-scrollbar-track{background:#dfdfdf}
+::-webkit-scrollbar-corner{background:#dfdfdf}
+::-webkit-scrollbar-thumb{background:#c0c0c0;box-shadow:inset -1px -1px #0a0a0a,inset 1px 1px #ffffff,inset -2px -2px #808080,inset 2px 2px #dfdfdf}
+::-webkit-scrollbar-button{background:#c0c0c0;box-shadow:inset -1px -1px #0a0a0a,inset 1px 1px #ffffff,inset -2px -2px #808080,inset 2px 2px #dfdfdf;display:block;height:16px;width:16px;background-repeat:no-repeat;background-position:center}
+::-webkit-scrollbar-button:vertical:decrement{background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 8 8'%3E%3Cpath d='M4 1L7 6H1z' fill='%23000'/%3E%3C/svg%3E")}
+::-webkit-scrollbar-button:vertical:increment{background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 8 8'%3E%3Cpath d='M4 7L1 2h6z' fill='%23000'/%3E%3C/svg%3E")}
+::-webkit-scrollbar-button:horizontal:decrement{background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 8 8'%3E%3Cpath d='M1 4l5-3v6z' fill='%23000'/%3E%3C/svg%3E")}
+::-webkit-scrollbar-button:horizontal:increment{background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 8 8'%3E%3Cpath d='M7 4L2 7V1z' fill='%23000'/%3E%3C/svg%3E")}
+</style>
+</head>
+<body>
+
+<div id="desktop">
+
+  <!-- 桌面图标 -->
+  <div class="dicon" id="iconMail" style="left:14px;top:12px" title="双击打开">
+    <svg width="32" height="32" viewBox="0 0 32 32"><rect x="3" y="7" width="26" height="18" fill="#fff" stroke="#000"/><path d="M3 7l13 9 13-9" fill="none" stroke="#000"/><path d="M3 25l10-8M29 25l-10-8" stroke="#000" fill="none"/></svg>
+    <span>收件箱</span>
+  </div>
+  <div class="dicon" id="iconBin" style="left:14px;top:80px" title="双击打开">
+    <svg width="32" height="32" viewBox="0 0 32 32"><path d="M10 4h12l1 4H9z" fill="#dfdfdf" stroke="#000"/><rect x="8" y="8" width="16" height="20" fill="#c0c0c0" stroke="#000"/><path d="M12 12v12M16 12v12M20 12v12" stroke="#808080"/></svg>
+    <span>回收站</span>
+  </div>
+
+  <!-- ============ 主窗口：收件箱 ============ -->
+  <div class="window" id="winMain" style="left:70px;top:26px;width:880px;height:560px">
+    <div class="titlebar">
+      <svg width="16" height="16" viewBox="0 0 16 16"><rect x="1.5" y="3.5" width="13" height="9" fill="#fff" stroke="#000"/><path d="M1.5 3.5L8 8.5l6.5-5" fill="none" stroke="#000"/></svg>
+      <span class="ttext">收件箱 - Windows 95 邮件</span>
+      <span class="tbtns">
+        <button class="tbtn" id="btnMin" title="最小化"><svg width="8" height="8" viewBox="0 0 8 8"><rect x="1" y="5" width="5" height="2" fill="#000"/></svg></button>
+        <button class="tbtn" id="btnMax" title="最大化"><svg width="9" height="9" viewBox="0 0 9 9"><rect x="0.5" y="0.5" width="8" height="7" fill="none" stroke="#000"/><rect x="0.5" y="0.5" width="8" height="2" fill="#000"/></svg></button>
+        <button class="tbtn" id="btnClose" title="关闭"><svg width="8" height="8" viewBox="0 0 8 8"><path d="M1 1l6 6M7 1L1 7" stroke="#000" stroke-width="1.4"/></svg></button>
+      </span>
+    </div>
+
+    <div class="menubar" id="menubar"></div>
+
+    <div class="toolbar">
+      <button class="btn" id="tNew"><span class="bi"><svg width="16" height="16" viewBox="0 0 16 16"><rect x="1.5" y="3.5" width="11" height="8" fill="#fff" stroke="#000"/><path d="M1.5 3.5L7 8l5.5-4.5" fill="none" stroke="#000"/><path d="M10 11h5v4h-5z" fill="#ffe97a" stroke="#000"/></svg>新邮件</span></button>
+      <div class="gap"></div>
+      <button class="btn" id="tReply"><span class="bi"><svg width="16" height="16" viewBox="0 0 16 16"><path d="M8 2v4C4 6 2 9 2 13c2-3 4-4 6-4v4l6-5.5z" fill="#5a8ad0" stroke="#000"/></svg>回复</span></button>
+      <button class="btn" id="tForward"><span class="bi"><svg width="16" height="16" viewBox="0 0 16 16"><path d="M8 2v4c4 0 6 3 6 7-2-3-4-4-6-4v4L2 7.5z" fill="#8ad05a" stroke="#000"/></svg>转发</span></button>
+      <button class="btn" id="tDelete"><span class="bi"><svg width="16" height="16" viewBox="0 0 16 16"><path d="M5 2h6l.8 2H14v1.5H2V4h2.2z" fill="#c0c0c0" stroke="#000"/><rect x="4" y="6" width="8" height="8" fill="#dfdfdf" stroke="#000"/><path d="M6.5 8v4M9.5 8v4" stroke="#808080"/></svg>删除</span></button>
+      <button class="btn" id="tArchive"><span class="bi"><svg width="16" height="16" viewBox="0 0 16 16"><rect x="2" y="4" width="12" height="3" fill="#c0c0c0" stroke="#000"/><rect x="3.5" y="7" width="9" height="6" fill="#dfdfdf" stroke="#000"/><path d="M8 1v4M6.3 3L8 5l1.7-2" stroke="#000" fill="none"/></svg>归档</span></button>
+      <button class="btn" id="tMark"><span class="bi"><svg width="16" height="16" viewBox="0 0 16 16"><path d="M4 1h8v14l-4-3.5L4 15z" fill="#e04b4b" stroke="#000"/></svg>标记</span></button>
+      <span class="spacer"></span>
+      <span class="searchbox">
+        <svg width="14" height="14" viewBox="0 0 14 14"><circle cx="6" cy="6" r="4" fill="none" stroke="#000" stroke-width="1.4"/><path d="M9 9l4 4" stroke="#000" stroke-width="1.8"/></svg>
+        <input type="text" id="searchInput" placeholder="搜索邮件...">
+      </span>
+    </div>
+
+    <div class="listwrap">
+      <div class="listbox">
+        <table class="mail">
+          <colgroup><col style="width:30px"><col style="width:190px"><col><col style="width:120px"></colgroup>
+          <thead>
+            <tr><th></th><th>发件人</th><th>主题</th><th>日期</th></tr>
+          </thead>
+          <tbody id="mailBody"></tbody>
+        </table>
+      </div>
+    </div>
+
+    <div class="statusbar">
+      <span class="sfield stretch" id="statText">就绪</span>
+      <span class="sfield"><span class="pagerctl">
+        <button class="btn" id="pgPrev" title="上一页">◀</button>
+        <span id="pageLabel">第 1/1 页</span>
+        <button class="btn" id="pgNext" title="下一页">▶</button>
+      </span></span>
+    </div>
+  </div>
+
+  <!-- ============ 撰写窗口 ============ -->
+  <div class="window" id="winCompose" style="width:480px;height:400px;display:none">
+    <div class="titlebar">
+      <svg width="16" height="16" viewBox="0 0 16 16"><rect x="1.5" y="3.5" width="13" height="9" fill="#fff" stroke="#000"/><path d="M1.5 3.5L8 8.5l6.5-5" fill="none" stroke="#000"/></svg>
+      <span class="ttext" id="composeTitle">新邮件</span>
+      <span class="tbtns"><button class="tbtn" data-close="winCompose" title="关闭"><svg width="8" height="8" viewBox="0 0 8 8"><path d="M1 1l6 6M7 1L1 7" stroke="#000" stroke-width="1.4"/></svg></button></span>
+    </div>
+    <div class="formarea">
+      <div class="frow"><label>收件人:</label><input type="text" id="cTo"></div>
+      <div class="frow"><label>主题:</label><input type="text" id="cSubject"></div>
+      <textarea id="cBody" style="flex:1;resize:none"></textarea>
+    </div>
+    <div class="btnrow">
+      <button class="btn" id="btnSend" style="min-width:74px;justify-content:center;font-weight:bold">发送</button>
+      <button class="btn" id="btnCancelCompose" style="min-width:74px;justify-content:center">取消</button>
+    </div>
+  </div>
+
+  <!-- ============ 阅读窗口 ============ -->
+  <div class="window" id="winRead" style="width:520px;height:420px;display:none">
+    <div class="titlebar">
+      <svg width="16" height="16" viewBox="0 0 16 16"><rect x="1.5" y="3.5" width="13" height="9" fill="#fff" stroke="#000"/><path d="M1.5 3.5L8 8.5l6.5-5" fill="none" stroke="#000"/></svg>
+      <span class="ttext" id="readTitle">邮件</span>
+      <span class="tbtns"><button class="tbtn" data-close="winRead" title="关闭"><svg width="8" height="8" viewBox="0 0 8 8"><path d="M1 1l6 6M7 1L1 7" stroke="#000" stroke-width="1.4"/></svg></button></span>
+    </div>
+    <div class="readerhead" id="readHead"></div>
+    <div class="mailbody" id="readBody" style="margin:0 6px 6px"></div>
+    <div class="btnrow">
+      <button class="btn" id="btnReadReply">回复</button>
+      <button class="btn" id="btnReadForward">转发</button>
+      <button class="btn end" id="btnReadClose">关闭</button>
+    </div>
+  </div>
+
+  <!-- ============ 通用对话框 ============ -->
+  <div class="window" id="winDlg" style="width:380px;display:none">
+    <div class="titlebar">
+      <svg width="16" height="16" viewBox="0 0 16 16"><circle cx="8" cy="8" r="7" fill="#0000dd" stroke="#000"/><path d="M8 4v5" stroke="#fff" stroke-width="1.6"/><circle cx="8" cy="11.6" r="1" fill="#fff"/></svg>
+      <span class="ttext" id="dlgTitle">提示</span>
+      <span class="tbtns"><button class="tbtn" data-close="winDlg" title="关闭"><svg width="8" height="8" viewBox="0 0 8 8"><path d="M1 1l6 6M7 1L1 7" stroke="#000" stroke-width="1.4"/></svg></button></span>
+    </div>
+    <div class="dlgtext" id="dlgText"></div>
+    <div class="dlgbtns" id="dlgBtns"></div>
+  </div>
+
+  <!-- ============ 开始菜单 ============ -->
+  <div id="startMenu">
+    <div class="side">Windows<span style="font-size:11px">&nbsp;95</span></div>
+    <div class="items">
+      <div class="ditem" data-act="mail"><svg width="18" height="18" viewBox="0 0 16 16"><rect x="1.5" y="3.5" width="13" height="9" fill="#fff" stroke="#000"/><path d="M1.5 3.5L8 8.5l6.5-5" fill="none" stroke="#000"/></svg>收件箱</div>
+      <div class="ditem" data-act="notepad"><svg width="18" height="18" viewBox="0 0 16 16"><rect x="3" y="1.5" width="10" height="13" fill="#fff" stroke="#000"/><path d="M5 4.5h6M5 7h6M5 9.5h4" stroke="#808080"/></svg>记事本</div>
+      <div class="dsep"></div>
+      <div class="ditem" data-act="help"><svg width="18" height="18" viewBox="0 0 16 16"><circle cx="8" cy="8" r="7" fill="#0000dd" stroke="#000"/><text x="8" y="11.5" text-anchor="middle" fill="#fff" font-size="9" font-weight="bold">?</text></svg>帮助<span class="right">F1</span></div>
+      <div class="ditem" data-act="run"><svg width="18" height="18" viewBox="0 0 16 16"><rect x="2" y="3" width="12" height="10" fill="#c0c0c0" stroke="#000"/><rect x="3.5" y="4.5" width="9" height="7" fill="#fff"/></svg>运行...<span class="right"></span></div>
+      <div class="dsep"></div>
+      <div class="ditem" data-act="shutdown"><svg width="18" height="18" viewBox="0 0 16 16"><path d="M8 1v6" stroke="#000" stroke-width="1.8"/><path d="M4 3a6.5 6.5 0 1 0 8 0" fill="none" stroke="#000" stroke-width="1.8"/></svg>关闭系统...</div>
+    </div>
+  </div>
+
+  <!-- 关机画面 -->
+  <div id="shutdown">现在您可以放心地关闭计算机了。</div>
+</div>
+
+<!-- ============ 任务栏 ============ -->
+<div id="taskbar">
+  <button class="btn" id="startBtn">
+    <span class="bi"><svg width="16" height="16" viewBox="0 0 16 16"><path d="M1 3.5l6-1v5H1zM8 2.3l7-1.2v6H8zM1 8.5h6v5l-6-1z" fill="#ff3b30" stroke="#a00" stroke-width=".5"/><path d="M8 8.5h7v6l-7-1.2z" fill="#3bc44b" stroke="#080" stroke-width=".5"/></svg>开始</span>
+  </button>
+  <div id="tasks">
+    <button class="btn taskbtn" id="taskMain"><span class="bi"><svg width="14" height="14" viewBox="0 0 16 16"><rect x="1.5" y="3.5" width="13" height="9" fill="#fff" stroke="#000"/><path d="M1.5 3.5L8 8.5l6.5-5" fill="none" stroke="#000"/></svg>收件箱 - Windows 95 邮件</span></button>
+  </div>
+  <div class="tray">
+    <svg width="14" height="14" viewBox="0 0 16 16"><path d="M2 11v-1l2-1 1-4h6l1 4 2 1v1z" fill="#c0c0c0" stroke="#404040"/></svg>
+    <svg width="14" height="14" viewBox="0 0 16 16"><path d="M8 2a5 5 0 0 1 5 5h-1.6A3.4 3.4 0 0 0 8 3.6z" fill="#404040"/><path d="M8 4.5A2.5 2.5 0 0 1 10.5 7H9.2A1.2 1.2 0 0 0 8 5.8z" fill="#404040"/><circle cx="8" cy="12.5" r="1.2" fill="#404040"/></svg>
+    <span id="clock">--:--</span>
+  </div>
+</div>
+
+<script>
+var $ = function(s){ return document.querySelector(s); };
+function esc(s){ return String(s).replace(/[&<>"]/g, function(c){ return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]; }); }
+
+/* ============ 数据 ============ */
+var mails = [
+ {id:'m1', unread:true,  from:'GitHub',        email:'noreply@github.com',      subject:'[cloud-mail] Release v1.2.0 已发布', date:'26-9-3 10:52',
+  body:'cloud-mail v1.2.0 已发布。\n\n更新内容：\n· 修复 OIDC 登录在部分浏览器下的回调问题\n· 新增邮件搜索的全文索引\n· 界面细节优化\n\n查看完整更新日志：github.com/ausu/cloud-mail/releases'},
+ {id:'m2', unread:true,  from:'张伟',          email:'zhangwei@example.com',    subject:'Re: 周末爬山的事', date:'26-9-3 9:47',
+  body:'周六天气不错，大罗山走起？\n\n早上七点在云顶茶舍集合，带上水和防晒。回程要是时间早的话一起吃个午饭。\n\n—— 阿伟'},
+ {id:'m3', unread:true,  from:'Cloudflare',    email:'cloudflare@example.com',  subject:'您的 Workers 免费配额即将用尽', date:'26-9-3 8:15',
+  body:'您好，\n\n您的账户在本月的 Workers 请求数已达到免费额度的 92%。超出后将按用量计费，或在额度重置前暂时限流。\n\n如需提升配额，请访问控制台升级计划。'},
+ {id:'m4', unread:true,  from:'李娜',          email:'lina@example.com',        subject:'Re: 项目排期确认', date:'26-9-3 8:02',
+  body:'好的，那这周启动。视觉稿今天下班前发你。\n\n排期表见附件，UI 改版预计两周。'},
+ {id:'m5', unread:false, from:'腾讯云',        email:'no-reply@cloud.tencent.com', subject:'2026 年 9 月账单已生成', date:'26-9-3 7:30',
+  body:'尊敬的用户，您的 2026 年 9 月账单已生成，本月消费 ¥86.00，其中：\n· 云服务器 ¥69.00\n· 对象存储 ¥17.00\n\n请及时查收，如有疑问请联系客服。'},
+ {id:'m6', unread:false, from:'王小明',        email:'wangxm@example.com',      subject:'上次说的那份资料', date:'26-9-2 21:18',
+  body:'附件里是我整理的老邮件系统资料，都是 1998 到 2003 年间保存下来的界面截图，研究老界面的时候应该用得上。\n\n用完还我，哈哈。'},
+ {id:'m7', unread:false, from:'V2EX',          email:'daily@v2ex.com',          subject:'每日精选：那些年我们用过的经典软件', date:'26-9-2 18:00',
+  body:'今天的热门话题：\n· 还有人记得 Windows 95 的启动画面吗？\n· 从 Winamp 到 Foobar2000：播放器二十年\n· 晒晒你最早的一个网名'},
+ {id:'m8', unread:false, from:'陈阿姨',        email:'chenayi@example.com',     subject:'周六来家吃饭', date:'26-9-1 16:40',
+  body:'周六下午过来吃饭，你叔买了条鲈鱼。早点到，顺便把上次落在家的充电器带走。'},
+ {id:'m9', unread:false, from:'网易邮局',      email:'service@163.com',         subject:'账号安全提醒：异地登录', date:'26-9-1 14:35',
+  body:'您的邮箱账号于 9 月 1 日 14:32 在新设备上登录，IP 归属地：浙江温州。如非本人操作，请立即修改密码。'},
+ {id:'m10',unread:false, from:'老赵',          email:'laozhao@example.com',     subject:'今晚火锅？', date:'26-8-31 17:22',
+  body:'老地方，六点半，人到齐就开锅。别迟到！'},
+ {id:'m11',unread:false, from:'Stack Overflow',email:'daily@stackoverflow.com', subject:'Weekly digest: top questions this week', date:'26-8-30 9:00',
+  body:'Top questions this week:\n· Why does my CSS grid overflow in Safari?\n· How to debounce scroll events properly\n· D1 database vs traditional SQL in edge deployments'},
+ {id:'m12',unread:false, from:'菜鸟驿站',      email:'notify@cainiao.com',      subject:'您的包裹已到驿站', date:'26-8-30 8:45',
+  body:'您的包裹已到达【云锦驿站】，取件码 8-2-3021，请于今日 22:00 前领取。'}
+];
+
+var DOT = '<svg class="dotcell" width="8" height="8" viewBox="0 0 8 8"><circle cx="4" cy="4" r="3" fill="#0000dd"/></svg>';
+
+var state = { selId:null, checked:{}, page:1, PS:8, query:'' };
+
+/* ============ 列表渲染 ============ */
+function filtered(){
+  return mails.filter(function(m){
+    if(!state.query) return true;
+    return (m.from + ' ' + m.subject).toLowerCase().indexOf(state.query) >= 0;
+  });
+}
+function render(){
+  var list = filtered();
+  var pages = Math.max(1, Math.ceil(list.length / state.PS));
+  if(state.page > pages) state.page = pages;
+  var slice = list.slice((state.page-1)*state.PS, state.page*state.PS);
+
+  $('#mailBody').innerHTML = slice.length ? slice.map(function(m){
+    var cls = (m.unread ? 'unread ' : '') + (m.id === state.selId ? 'sel' : '');
+    return '<tr data-id="' + m.id + '" class="' + cls.trim() + '">' +
+      '<td class="cc"><input type="checkbox" data-chk="' + m.id + '"' + (state.checked[m.id] ? ' checked' : '') + '></td>' +
+      '<td>' + (m.unread ? DOT : '') + esc(m.from) + '</td>' +
+      '<td>' + (m.subject ? esc(m.subject) : '<span class="dcell">（无主题）</span>') + '</td>' +
+      '<td>' + esc(m.date) + '</td></tr>';
+  }).join('') : '<tr><td colspan="4"><div class="emptyMsg">没有找到匹配的邮件。</div></td></tr>';
+
+  $('#pageLabel').textContent = '第 ' + state.page + '/' + pages + ' 页';
+  $('#pgPrev').disabled = state.page <= 1;
+  $('#pgNext').disabled = state.page >= pages;
+  var unread = mails.filter(function(m){ return m.unread; }).length;
+  $('#statText').textContent = '共 ' + mails.length + ' 封邮件，' + unread + ' 封未读' + (state.query ? '（筛选中）' : '');
+}
+
+$('#mailBody').addEventListener('click', function(ev){
+  if(ev.target.matches('input[data-chk]')) return;
+  var tr = ev.target.closest('tr[data-id]');
+  if(tr){ state.selId = tr.getAttribute('data-id'); render(); }
+});
+$('#mailBody').addEventListener('change', function(ev){
+  if(!ev.target.matches('input[data-chk]')) return;
+  state.checked[ev.target.getAttribute('data-chk')] = ev.target.checked;
+});
+$('#mailBody').addEventListener('dblclick', function(ev){
+  var tr = ev.target.closest('tr[data-id]');
+  if(tr) openRead(tr.getAttribute('data-id'));
+});
+
+/* ============ 选择辅助 ============ */
+function targets(){
+  var ids = Object.keys(state.checked).filter(function(k){ return state.checked[k]; });
+  if(ids.length) return ids;
+  return state.selId ? [state.selId] : [];
+}
+function findMail(id){
+  for(var i = 0; i < mails.length; i++) if(mails[i].id === id) return mails[i];
+  return null;
+}
+
+/* ============ 窗口管理 ============ */
+var zTop = 10, cascade = 0;
+function activate(win){
+  document.querySelectorAll('.window').forEach(function(w){ w.classList.toggle('inactive', w !== win); });
+  win.style.zIndex = ++zTop;
+  syncTaskbar();
+}
+document.querySelectorAll('.window').forEach(function(w){
+  w.addEventListener('mousedown', function(){ activate(w); });
+});
+function syncTaskbar(){
+  var main = $('#winMain');
+  var hidden = main.style.display === 'none';
+  var task = $('#taskMain');
+  task.style.display = hidden ? 'none' : '';
+  task.classList.toggle('on', !hidden && !main.classList.contains('inactive') && main.style.display !== 'none');
+}
+function centerWin(w){
+  var dw = $('#desktop').getBoundingClientRect();
+  var r = w.getBoundingClientRect();
+  var off = (cascade % 5) * 22;
+  w.style.left = Math.max(4, (dw.width - r.width) / 2 + off) + 'px';
+  w.style.top = Math.max(4, (dw.height - r.height) / 2 - 20 + off) + 'px';
+}
+function openWin(w){
+  w.style.display = 'flex';
+  activate(w);
+}
+
+/* 拖动 */
+var drag = null;
+document.querySelectorAll('.window .titlebar').forEach(function(tb){
+  tb.addEventListener('mousedown', function(e){
+    if(e.target.closest('.tbtn')) return;
+    var w = tb.parentElement;
+    if(w.classList.contains('maximized')) return;
+    drag = { w: w, dx: e.clientX - w.offsetLeft, dy: e.clientY - w.offsetTop };
+    e.preventDefault();
+  });
+  tb.addEventListener('dblclick', function(){
+    if(tb.parentElement.id === 'winMain') toggleMax();
+  });
+});
+document.addEventListener('mousemove', function(e){
+  if(!drag) return;
+  drag.w.style.left = Math.min(Math.max(e.clientX - drag.dx, -drag.w.offsetWidth + 120), window.innerWidth - 120) + 'px';
+  drag.w.style.top = Math.min(Math.max(e.clientY - drag.dy, 0), window.innerHeight - 60) + 'px';
+});
+document.addEventListener('mouseup', function(){ drag = null; });
+
+/* 最小化 / 最大化 / 关闭 */
+$('#btnMin').onclick = function(){ $('#winMain').style.display = 'none'; syncTaskbar(); };
+$('#btnMax').onclick = toggleMax;
+function toggleMax(){
+  var w = $('#winMain');
+  w.classList.toggle('maximized');
+  $('#btnMax').innerHTML = w.classList.contains('maximized')
+    ? '<svg width="9" height="9" viewBox="0 0 9 9"><rect x="0.5" y="2.5" width="6" height="5.5" fill="none" stroke="#000"/><path d="M2.5 2.5v-2h6v5.5h-2" fill="none" stroke="#000"/></svg>'
+    : '<svg width="9" height="9" viewBox="0 0 9 9"><rect x="0.5" y="0.5" width="8" height="7" fill="none" stroke="#000"/><rect x="0.5" y="0.5" width="8" height="2" fill="#000"/></svg>';
+}
+$('#btnClose').onclick = function(){ $('#winMain').style.display = 'none'; syncTaskbar(); };
+$('#taskMain').onclick = function(){
+  var w = $('#winMain');
+  if(w.style.display === 'none'){ w.style.display = 'flex'; activate(w); }
+  else if(w.classList.contains('inactive')){ activate(w); }
+  else { w.style.display = 'none'; }
+  syncTaskbar();
+};
+document.querySelectorAll('[data-close]').forEach(function(b){
+  b.onclick = function(){ $('#' + b.getAttribute('data-close')).style.display = 'none'; };
+});
+
+/* 桌面图标 */
+$('#iconMail').addEventListener('click', function(){ this.classList.add('sel'); $('#iconBin').classList.remove('sel'); });
+$('#iconBin').addEventListener('click', function(){ this.classList.add('sel'); $('#iconMail').classList.remove('sel'); });
+$('#iconMail').addEventListener('dblclick', function(){
+  this.classList.remove('sel');
+  $('#winMain').style.display = 'flex'; activate($('#winMain')); syncTaskbar();
+});
+$('#iconBin').addEventListener('dblclick', function(){
+  this.classList.remove('sel');
+  showDlg('回收站', '回收站是空的。', [{label:'确定'}]);
+});
+$('#desktop').addEventListener('click', function(e){
+  if(!e.target.closest('.dicon')) document.querySelectorAll('.dicon').forEach(function(d){ d.classList.remove('sel'); });
+});
+
+/* ============ 菜单栏 ============ */
+var MENUS = [
+ {label:'文件', items:[
+   {t:'新邮件', a:function(){ openCompose(null); }},
+   {t:'保存', a:function(){ showDlg('提示', '已保存到草稿箱。', [{label:'确定'}]); }},
+   {sep:true},
+   {t:'退出', a:function(){ $('#winMain').style.display = 'none'; syncTaskbar(); }}
+ ]},
+ {label:'编辑', items:[
+   {t:'全选', a:function(){ filtered().forEach(function(m){ state.checked[m.id] = true; }); render(); }},
+   {t:'取消选择', a:function(){ state.checked = {}; state.selId = null; render(); }}
+ ]},
+ {label:'查看', items:[
+   {t:'刷新', a:function(){ render(); }},
+   {t:'已读/未读标记', a:function(){ actMark(); }}
+ ]},
+ {label:'转到', items:[
+   {t:'上一页', a:function(){ if(state.page > 1){ state.page--; render(); } }},
+   {t:'下一页', a:function(){ state.page++; render(); }}
+ ]},
+ {label:'收藏', items:[
+   {t:'收件箱', a:function(){ state.query = ''; $('#searchInput').value = ''; state.page = 1; render(); }},
+   {t:'添加到收藏...', a:function(){ showDlg('提示', '此功能尚未实现。', [{label:'确定'}]); }}
+ ]},
+ {label:'帮助', items:[
+   {t:'关于 Windows 95 邮件...', a:showAbout}
+ ]}
+];
+var menubar = $('#menubar');
+MENUS.forEach(function(m){
+  var item = document.createElement('span');
+  item.className = 'menu-item';
+  item.innerHTML = esc(m.label) + '<span class="dropdown">' + m.items.map(function(it, i){
+    return it.sep ? '<div class="dsep"></div>' : '<div class="ditem" data-mi="' + i + '">' + esc(it.t) + '</div>';
+  }).join('') + '</span>';
+  item.addEventListener('click', function(e){
+    var di = e.target.closest('.ditem');
+    if(di){
+      var act = m.items[+di.getAttribute('data-mi')].a;
+      closeMenus();
+      act();
+      e.stopPropagation();
+      return;
+    }
+    var wasOpen = item.classList.contains('open');
+    closeMenus();
+    if(!wasOpen) item.classList.add('open');
+    e.stopPropagation();
+  });
+  item.addEventListener('mouseenter', function(){
+    if(document.querySelector('.menu-item.open') && !item.classList.contains('open')){
+      closeMenus(); item.classList.add('open');
+    }
+  });
+  menubar.appendChild(item);
+});
+function closeMenus(){
+  document.querySelectorAll('.menu-item.open').forEach(function(m){ m.classList.remove('open'); });
+  $('#startMenu').classList.remove('on');
+  $('#startBtn').classList.remove('on');
+}
+document.addEventListener('click', function(){ closeMenus(); });
+
+/* ============ 对话框 ============ */
+function showDlg(title, text, btns){
+  $('#dlgTitle').textContent = title;
+  $('#dlgText').innerHTML = text;
+  var bb = $('#dlgBtns');
+  bb.innerHTML = '';
+  (btns || [{label:'确定'}]).forEach(function(b){
+    var el = document.createElement('button');
+    el.className = 'btn';
+    el.textContent = b.label;
+    el.onclick = function(){ $('#winDlg').style.display = 'none'; if(b.a) b.a(); };
+    bb.appendChild(el);
+  });
+  var w = $('#winDlg');
+  w.style.display = 'flex';
+  if(!w.style.left) centerWin(w);
+  activate(w);
+}
+function showAbout(){
+  showDlg('关于 Windows 95 邮件',
+    '<svg width="32" height="32" viewBox="0 0 16 16"><rect x="1.5" y="3.5" width="13" height="9" fill="#fff" stroke="#000"/><path d="M1.5 3.5L8 8.5l6.5-5" fill="none" stroke="#000"/></svg>' +
+    '<div><b>Windows 95 邮件</b><br>版本 4.00.950（仿古演示）<br><br>本页面为界面设计稿，用于展示 Win95 风格的收件箱布局与交互。</div>',
+    [{label:'确定'}]);
+}
+
+/* ============ 工具栏动作 ============ */
+function needTarget(){
+  if(!targets().length){ showDlg('提示', '请先选择邮件。', [{label:'确定'}]); return false; }
+  return true;
+}
+function actDelete(){
+  if(!needTarget()) return;
+  var n = targets().length;
+  showDlg('删除邮件', '确实要删除选中的 ' + n + ' 封邮件吗？', [
+    {label:'是', a:function(){
+      targets().forEach(function(id){
+        for(var i = 0; i < mails.length; i++) if(mails[i].id === id){ mails.splice(i, 1); break; }
+        delete state.checked[id];
+      });
+      state.selId = null; render();
+    }},
+    {label:'否'}
+  ]);
+}
+function actArchive(){
+  if(!needTarget()) return;
+  var n = targets().length;
+  targets().forEach(function(id){ delete state.checked[id]; });
+  targets().forEach(function(id){
+    for(var i = 0; i < mails.length; i++) if(mails[i].id === id){ mails.splice(i, 1); break; }
+  });
+  state.selId = null; render();
+  showDlg('归档', '已归档 ' + n + ' 封邮件。', [{label:'确定'}]);
+}
+function actMark(){
+  if(!needTarget()) return;
+  targets().forEach(function(id){ var m = findMail(id); if(m) m.unread = !m.unread; });
+  render();
+}
+$('#tNew').onclick = function(){ openCompose(null); };
+$('#tReply').onclick = function(){ if(!needTarget()) return; openCompose(findMail(targets()[0]), 'reply'); };
+$('#tForward').onclick = function(){ if(!needTarget()) return; openCompose(findMail(targets()[0]), 'forward'); };
+$('#tDelete').onclick = actDelete;
+$('#tArchive').onclick = actArchive;
+$('#tMark').onclick = actMark;
+
+/* 分页 */
+$('#pgPrev').onclick = function(){ if(state.page > 1){ state.page--; render(); } };
+$('#pgNext').onclick = function(){ state.page++; render(); };
+
+/* 搜索 */
+$('#searchInput').addEventListener('input', function(){
+  state.query = this.value.trim().toLowerCase();
+  state.page = 1;
+  render();
+});
+
+/* ============ 撰写 ============ */
+function openCompose(mail, mode){
+  var title = '新邮件';
+  var to = '', subject = '', body = '';
+  if(mail && mode === 'reply'){
+    title = '回复: ' + (mail.subject || '');
+    to = mail.email;
+    subject = 'Re: ' + (mail.subject || '');
+    body = '\n\n----- 原始邮件 -----\n发件人: ' + mail.from + ' <' + mail.email + '>\n日期: ' + mail.date + '\n主题: ' + mail.subject + '\n\n' + mail.body;
+  }
+  if(mail && mode === 'forward'){
+    title = '转发: ' + (mail.subject || '');
+    subject = 'Fw: ' + (mail.subject || '');
+    body = '\n\n----- 转发邮件 -----\n发件人: ' + mail.from + ' <' + mail.email + '>\n日期: ' + mail.date + '\n主题: ' + mail.subject + '\n\n' + mail.body;
+  }
+  $('#composeTitle').textContent = title;
+  $('#cTo').value = to;
+  $('#cSubject').value = subject;
+  $('#cBody').value = body;
+  var w = $('#winCompose');
+  if(w.style.display === 'none') centerWin(w);
+  openWin(w);
+  $('#cTo').focus();
+}
+$('#btnSend').onclick = function(){
+  if(!$('#cTo').value.trim()){ showDlg('提示', '请至少填写一位收件人。', [{label:'确定'}]); return; }
+  $('#winCompose').style.display = 'none';
+  showDlg('发送邮件', '邮件已发送。', [{label:'确定'}]);
+};
+$('#btnCancelCompose').onclick = function(){ $('#winCompose').style.display = 'none'; };
+
+/* ============ 阅读 ============ */
+var readId = null;
+function openRead(id){
+  var m = findMail(id);
+  if(!m) return;
+  readId = id;
+  m.unread = false;
+  if(state.selId === id) render();
+  $('#readTitle').textContent = m.subject || '（无主题）';
+  $('#readHead').innerHTML =
+    '<b>发件人:</b> ' + esc(m.from) + ' &lt;' + esc(m.email) + '&gt;<br>' +
+    '<b>日期:</b> ' + esc(m.date) + '<br>' +
+    '<b>主题:</b> ' + esc(m.subject || '（无主题）');
+  $('#readBody').textContent = m.body;
+  var w = $('#winRead');
+  if(w.style.display === 'none') centerWin(w);
+  openWin(w);
+  render();
+}
+$('#btnReadClose').onclick = function(){ $('#winRead').style.display = 'none'; };
+$('#btnReadReply').onclick = function(){ if(readId) openCompose(findMail(readId), 'reply'); };
+$('#btnReadForward').onclick = function(){ if(readId) openCompose(findMail(readId), 'forward'); };
+
+/* ============ 开始菜单 ============ */
+$('#startBtn').addEventListener('click', function(e){
+  e.stopPropagation();
+  var sm = $('#startMenu');
+  var on = sm.classList.toggle('on');
+  this.classList.toggle('on', on);
+});
+$('#startMenu').addEventListener('click', function(e){
+  e.stopPropagation();
+  var item = e.target.closest('.ditem');
+  if(!item) return;
+  var act = item.getAttribute('data-act');
+  closeMenus();
+  if(act === 'mail'){
+    $('#winMain').style.display = 'flex'; activate($('#winMain')); syncTaskbar();
+  }
+  if(act === 'notepad'){ showDlg('记事本', '此功能尚未实现。', [{label:'确定'}]); }
+  if(act === 'help'){ showAbout(); }
+  if(act === 'run'){ showDlg('运行', '此功能尚未实现。', [{label:'确定'}]); }
+  if(act === 'shutdown'){
+    showDlg('关闭 Windows', '您确定要关闭计算机吗？', [
+      {label:'是', a:function(){
+        $('#shutdown').style.display = 'flex';
+        $('#shutdown').onclick = function(){ this.style.display = 'none'; };
+      }},
+      {label:'否'}
+    ]);
+  }
+});
+
+/* ============ 时钟 ============ */
+function tick(){
+  var d = new Date();
+  $('#clock').textContent = ('0' + d.getHours()).slice(-2) + ':' + ('0' + d.getMinutes()).slice(-2);
+}
+tick();
+setInterval(tick, 10000);
+
+/* Esc 关闭顶层弹窗 */
+document.addEventListener('keydown', function(e){
+  if(e.key !== 'Escape') return;
+  var dlg = $('#winDlg'), comp = $('#winCompose'), read = $('#winRead');
+  if(dlg.style.display !== 'none') dlg.style.display = 'none';
+  else if(comp.style.display !== 'none') comp.style.display = 'none';
+  else if(read.style.display !== 'none') read.style.display = 'none';
+  else closeMenus();
+});
+
+render();
+activate($('#winMain'));
+</script>
+</body>
+</html>

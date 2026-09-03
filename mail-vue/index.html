@@ -14,10 +14,15 @@
     if (uiStoreStr) {
       const uiStore =  JSON.parse(uiStoreStr)
       const root = document.documentElement
-      root.setAttribute('class', uiStore.dark ? 'dark' : '');
       const metaTag = document.getElementById('theme-color-meta');
       const isMobile =  !window.matchMedia("(pointer: fine) and (hover: hover)").matches;
-      metaTag.setAttribute('content', uiStore.dark ? (isMobile ? '#141414' : '#000000') : (isMobile ? '#FFFFFF' : '#F1F1F1'));
+      if (uiStore.win95) {
+        root.setAttribute('class', 'win95');
+        metaTag.setAttribute('content', '#c0c0c0');
+      } else {
+        root.setAttribute('class', uiStore.dark ? 'dark' : '');
+        metaTag.setAttribute('content', uiStore.dark ? (isMobile ? '#141414' : '#000000') : (isMobile ? '#FFFFFF' : '#F1F1F1'));
+      }
     }
   </script>
 </head>
@@ -27,6 +32,22 @@
   }
   .dark {
     background: #141414;
+  }
+  .win95 {
+    background: #008080;
+  }
+  html.win95 #loading-first {
+    background: #c0c0c0;
+  }
+  html.win95 .loading-progress {
+    background: rgba(128, 128, 128, 0.3);
+    border: 1px solid #808080;
+  }
+  html.win95 .loading-progress::before {
+    background: #000080;
+  }
+  html.win95 .loading-progress::after {
+    background: #000080;
   }
   #loading-first {
     position: fixed;

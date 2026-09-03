@@ -1,0 +1,643 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<title>Gmail - 收件箱</title>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+html,body{height:100%}
+body{font:12px/1.4 arial,sans-serif;color:#000;background:#fff;min-width:980px;display:flex;flex-direction:column}
+a{color:#1155cc;cursor:pointer;text-decoration:underline}
+button{font-family:inherit}
+
+/* 经典的红色 Loading */
+.loading{position:fixed;top:3px;right:10px;color:#c00;font-weight:bold;font-style:italic;font-size:12px;display:none;z-index:99}
+.loading.on{display:block}
+
+/* 顶部：logo + 搜索 */
+header{display:flex;align-items:center;gap:14px;padding:8px 14px 6px;border-bottom:1px solid #c3d9ff}
+.logo{font-size:26px;font-weight:bold;color:#db3236;letter-spacing:-1px;white-space:nowrap}
+.logo sup{font-size:10px;color:#777;font-weight:normal;letter-spacing:0;font-style:italic;margin-left:2px}
+.searchbar{display:flex;align-items:center;gap:5px;flex:0 1 480px}
+.searchbar input{flex:1;border:1px solid #999;padding:3px 6px;font-size:13px;font-family:inherit}
+.sbtn{border:1px solid #b0b0b0;background:#f3f3f3;padding:3px 10px;font-size:12px;cursor:pointer;border-radius:2px}
+.sbtn:hover{background:#e8eef7}
+.account{margin-left:auto;color:#333;white-space:nowrap}
+
+/* 圆角标签页条 */
+.tabstrip{display:flex;align-items:flex-end;gap:18px;padding:6px 14px 0;border-bottom:1px solid #a8bbda}
+.compose-link{font-weight:bold;font-size:13px;color:#333;text-decoration:none;display:inline-flex;align-items:center;gap:5px;padding:2px 0 5px}
+.tabs{display:flex}
+.tabs a{display:inline-block;padding:3px 16px 4px;margin-right:4px;border:1px solid #a8bbda;border-bottom:none;border-radius:5px 5px 0 0;background:#e8eef7;color:#1155cc;text-decoration:none;font-size:12px;position:relative;top:1px}
+.tabs a:hover{background:#d6e3f5}
+.tabs a.active{background:#c3d9ff;color:#000;font-weight:bold}
+
+/* 主体布局 */
+.main{display:flex;flex:1;min-height:0}
+aside{width:185px;flex:0 0 auto;border-right:1px solid #c3d9ff;padding:10px 8px 16px}
+aside h4{font-size:12px;color:#333;margin:12px 0 3px 4px}
+ul.menu{list-style:none}
+ul.menu li{padding:2px 6px;color:#1155cc;cursor:pointer;border-radius:2px;display:flex;align-items:center}
+ul.menu li:hover{background:#e8eef7}
+ul.menu li.active{font-weight:bold;color:#000}
+ul.menu li .cnt{margin-left:auto;font-weight:normal;color:#1155cc}
+ul.menu li.active .cnt{font-weight:bold;color:#000}
+ul.menu li .swatch{display:inline-block;width:9px;height:9px;margin-right:6px;flex:0 0 auto}
+.invite{margin-top:16px;border:1px solid #c3d9ff;padding:8px;background:#f7f9fd;font-size:11px;color:#555;line-height:1.5}
+.invite b{color:#000}
+.invite a{display:inline-block;margin-top:5px}
+
+.content{flex:1;min-width:0;display:flex;flex-direction:column}
+
+/* 工具栏 */
+.toolbar{display:flex;align-items:center;gap:6px;padding:4px 8px;background:#e8eef7;border-bottom:1px solid #c3d9ff;flex-wrap:wrap}
+.tbtn{display:inline-flex;align-items:center;gap:4px;border:1px solid #a8bbda;background:#fff;border-radius:3px;padding:2px 8px;font-size:12px;color:#333;cursor:pointer}
+.tbtn:hover{background:#f5f8fc}
+.selinks{color:#555;margin-left:8px}
+.selinks a{margin-right:5px}
+.pager{margin-left:auto;color:#333;white-space:nowrap}
+
+/* 横幅提示（老式淡黄框） */
+.banner{background:#ffffcc;border:1px solid #d9d9a5;margin:6px 8px 0;padding:4px 8px;display:none;font-size:12px}
+.banner.on{display:block}
+.banner.err{background:#ffcccc;border-color:#cc9999}
+.banner .ok{color:#090;font-weight:bold;margin-right:6px}
+
+/* 邮件列表 */
+.listwrap{flex:1;overflow:auto;margin-top:2px}
+table.mail{width:100%;border-collapse:collapse;table-layout:fixed}
+table.mail td{padding:4px 6px;border-bottom:1px solid #ececec;font-size:13px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+table.mail tbody tr{cursor:pointer}
+table.mail tbody tr:hover{background:#eef3fa}
+table.mail tbody tr.sel{background:#ffffcc}
+table.mail tbody tr.unread{font-weight:bold}
+.snip{color:#777;font-weight:normal!important}
+.date{color:#666;font-weight:normal!important}
+.star{cursor:pointer;line-height:0;vertical-align:-2px}
+.star svg{display:block}
+.lbltext{font-size:11px;margin-left:6px;font-weight:normal!important}
+.dcell{color:#888;font-style:italic}
+.empty{padding:34px 10px;text-align:center;color:#777;font-size:13px}
+
+/* 会话阅读视图 */
+.thread{padding:6px 10px 20px}
+.backrow{display:flex;align-items:center;gap:6px;padding:4px 2px 8px}
+.backrow a{font-weight:bold;text-decoration:none}
+.thread h1{font-size:16px;margin:0 0 10px;font-weight:bold}
+.msg{border:1px solid #c3d9ff;margin-bottom:8px;background:#fff}
+.msg .mh{background:#e8eef7;padding:4px 8px;font-size:12px;display:flex;gap:8px;align-items:baseline}
+.msg .mh .who b{font-size:13px}
+.msg .mh .to{color:#777}
+.msg .mh .when{margin-left:auto;color:#555;white-space:nowrap}
+.msg .mb{padding:10px 12px;font-size:13px;line-height:1.55;white-space:pre-wrap}
+.replybox{margin:8px 0 4px;border:1px solid #c3d9ff;background:#f7f9fd;padding:8px}
+.replybox textarea{width:100%;height:70px;border:1px solid #999;padding:6px;font:13px arial;resize:vertical}
+.actions-row{display:flex;gap:8px;margin-top:6px}
+
+/* 撰写视图 */
+.compose-form{padding:10px 12px 20px;max-width:860px}
+.compose-form h1{font-size:15px;margin:2px 0 10px;font-weight:bold}
+.crow{display:flex;align-items:center;gap:8px;margin-bottom:6px}
+.crow label{width:54px;color:#555;text-align:right;flex:0 0 auto}
+.crow input[type=text]{flex:1;border:1px solid #999;padding:3px 6px;font-size:13px;font-family:inherit}
+.compose-form textarea{width:100%;height:210px;border:1px solid #999;padding:6px;font:13px/1.5 arial;margin:4px 0 10px;resize:vertical}
+
+/* 底部：容量计量条 */
+footer{border-top:1px solid #c3d9ff;padding:6px 14px;font-size:11px;color:#555;display:flex;align-items:center;gap:12px;flex-wrap:wrap}
+.meter{display:inline-block;width:130px;height:11px;border:1px solid #888;padding:1px;background:#fff;vertical-align:-2px}
+.meter i{display:block;height:100%;width:23%;background:#cc0000}
+footer .flinks{margin-left:auto;color:#777}
+footer .keys{color:#999}
+</style>
+</head>
+<body>
+
+<div class="loading" id="loading">正在载入...</div>
+
+<header>
+  <div class="logo">Gmail<sup>测试版</sup></div>
+  <form class="searchbar" id="searchForm">
+    <input id="searchInput" type="text" autocomplete="off">
+    <button class="sbtn" type="submit">搜索邮件</button>
+    <button class="sbtn" type="button" id="searchWeb">搜索网页</button>
+  </form>
+  <div class="account"><b>ausu@gmail.com</b> | <a>设置</a> | <a>帮助</a> | <a>退出</a></div>
+</header>
+
+<div class="tabstrip">
+  <a class="compose-link" id="composeBtn">
+    <svg width="13" height="13" viewBox="0 0 16 16"><path fill="#555" d="M1 15l1-4L11 2l3 3L5 14l-4 1z"/></svg>
+    撰写邮件
+  </a>
+  <nav class="tabs">
+    <a data-view="inbox" class="active">收件箱 <span id="c-tab-inbox"></span></a>
+    <a data-view="starred">已加星标 <span id="c-tab-starred"></span></a>
+    <a data-view="sent">已发送邮件 <span id="c-tab-sent"></span></a>
+    <a data-view="drafts">草稿 <span id="c-tab-drafts"></span></a>
+  </nav>
+</div>
+
+<div class="main">
+  <aside>
+    <ul class="menu" id="folderMenu">
+      <li data-view="inbox" class="active">收件箱 <span class="cnt" id="c-inbox"></span></li>
+      <li data-view="starred">已加星标 <span class="cnt" id="c-starred"></span></li>
+      <li data-view="sent">已发送邮件 <span class="cnt" id="c-sent"></span></li>
+      <li data-view="drafts">草稿 <span class="cnt" id="c-drafts"></span></li>
+      <li data-view="spam">垃圾邮件 <span class="cnt" id="c-spam"></span></li>
+      <li data-view="trash">回收站 <span class="cnt" id="c-trash"></span></li>
+    </ul>
+    <h4>标签</h4>
+    <ul class="menu">
+      <li><span class="swatch" style="background:#0b7a0b"></span>工作</li>
+      <li><span class="swatch" style="background:#b8860b"></span>家庭</li>
+      <li><span class="swatch" style="background:#777"></span>新闻</li>
+    </ul>
+    <div class="invite">
+      邀请好友<br>
+      您还有 <b>3</b> 个邀请名额。<br>Gmail 目前采用<b>邀请制</b>注册。
+      <a id="inviteLink">邀请好友加入</a>
+    </div>
+  </aside>
+
+  <section class="content">
+    <div class="toolbar" id="toolbar">
+      <input type="checkbox" id="checkAll" title="全选">
+      <button class="tbtn" id="btnArchive"><svg width="14" height="14" viewBox="0 0 16 16"><path fill="#7a8db0" d="M1 3h14v4H1zM2.5 8h11v6h-11zM6 1h4v1.5H6z"/></svg>归档</button>
+      <button class="tbtn" id="btnSpam"><svg width="14" height="14" viewBox="0 0 16 16"><circle cx="8" cy="8" r="7" fill="#c98b8b"/><rect x="7.2" y="3.5" width="1.6" height="6" fill="#fff"/><rect x="7.2" y="10.5" width="1.6" height="1.8" fill="#fff"/></svg>举报垃圾邮件</button>
+      <button class="tbtn" id="btnDelete"><svg width="14" height="14" viewBox="0 0 16 16"><path fill="#7a8db0" d="M5.5 1h5l.8 2H15v1.5H1V3h3.7zM3 6h10l-1 9H4z"/></svg>删除</button>
+      <span class="selinks">选中：
+        <a data-sel="all">全部</a><a data-sel="none">无</a><a data-sel="read">已读</a>
+        <a data-sel="unread">未读</a><a data-sel="starred">已加星标</a>
+      </span>
+      <span class="pager" id="pager"></span>
+      <button class="tbtn" id="btnRefresh" title="刷新"><svg width="14" height="14" viewBox="0 0 16 16"><path fill="none" stroke="#7a8db0" stroke-width="2" d="M13.5 8a5.5 5.5 0 1 1-1.6-3.9"/><path fill="#7a8db0" d="M14.5 1v4.2h-4.2z"/></svg></button>
+    </div>
+
+    <div class="banner" id="banner"></div>
+
+    <div class="listwrap" id="listview">
+      <table class="mail">
+        <colgroup><col style="width:26px"><col style="width:26px"><col style="width:190px"><col><col style="width:96px"></colgroup>
+        <tbody id="mailBody"></tbody>
+      </table>
+    </div>
+
+    <div id="threadview" class="thread" style="display:none;overflow:auto"></div>
+
+    <div id="composeview" class="compose-form" style="display:none">
+      <h1>撰写邮件</h1>
+      <div class="crow"><label>收件人</label><input type="text" id="cTo"></div>
+      <div class="crow"><label>主题</label><input type="text" id="cSubject"></div>
+      <textarea id="cBody" placeholder=""></textarea>
+      <div class="actions-row">
+        <button class="tbtn" id="btnSend" style="font-weight:bold">发送</button>
+        <button class="tbtn" id="btnSaveDraft">保存草稿</button>
+        <button class="tbtn" id="btnDiscard">放弃</button>
+      </div>
+    </div>
+  </section>
+</div>
+
+<footer>
+  <span>您当前正在使用 <b>234 MB</b>（23%）<span style="color:#888">共 1024 MB</span></span>
+  <span class="meter"><i></i></span>
+  <span>上次账户活动：2 分钟前</span>
+  <span class="keys">快捷键：C 撰写 · / 搜索 · Esc 返回</span>
+  <span class="flinks"><a>以基本 HTML 视图查看</a> | <a>使用条款</a> | <a>隐私政策</a> | <a>关于 Gmail</a></span>
+</footer>
+
+<script>
+var $ = function(s){ return document.querySelector(s); };
+function esc(s){ return String(s).replace(/[&<>"]/g, function(c){ return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]; }); }
+
+var STAR_ON  = '<svg width="14" height="14" viewBox="0 0 16 16"><path fill="#f4b400" d="M8 1.3l2 4.2 4.6.6-3.4 3.2.9 4.5L8 11.6 3.9 13.8l.9-4.5L1.4 6.1 6 5.5z"/></svg>';
+var STAR_OFF = '<svg width="14" height="14" viewBox="0 0 16 16"><path fill="none" stroke="#999" stroke-width="1.2" d="M8 1.8l1.8 3.8 4.1.5-3 2.9.8 4-3.7-2-3.7 2 .8-4-3-2.9 4.1-.5z"/></svg>';
+var LABELS = {'工作':'#0b7a0b','家庭':'#b8860b','新闻':'#777'};
+var FOLDERS = {inbox:'收件箱', starred:'已加星标', sent:'已发送邮件', drafts:'草稿', spam:'垃圾邮件', trash:'回收站'};
+var ME = '我';
+
+var state = { view:'inbox', prevView:'inbox', query:'', sel:{}, thread:null, compose:null };
+var seq = 0;
+function nid(){ seq++; return 'm'+seq; }
+
+var E = [];
+function add(folder, o){
+  o.id = o.id || nid();
+  o.folder = folder;
+  o.unread = !!o.unread;
+  o.starred = !!o.starred;
+  o.label = o.label || null;
+  var body = o.messages ? o.messages.map(function(m){return m.body;}).join(' ') : (o.body || '');
+  o.snippet = body.replace(/\s+/g,' ').slice(0,46) + (body.replace(/\s+/g,' ').length > 46 ? '…' : '');
+  E.push(o);
+}
+
+/* ---------------- 数据 ---------------- */
+add('inbox', { unread:true, starred:true, label:'工作', date:'上午 10:52', from:'GitHub',
+  subject:'[cloud-mail] Release v1.2.0 已发布',
+  messages:[
+    {from:'GitHub', email:'noreply@github.com', date:'上午 10:52', body:'cloud-mail v1.2.0 已发布。\n\n更新内容：\n· 修复 OIDC 登录在部分浏览器下的回调问题\n· 新增邮件搜索的全文索引\n· 界面细节优化\n\n查看完整更新日志：github.com/ausu/cloud-mail/releases'}
+  ]});
+add('inbox', { unread:true, date:'上午 9:47', from:'张伟',
+  subject:'Re: 周末爬山的事',
+  messages:[
+    {from:'我', email:'ausu@gmail.com', date:'9月2日', body:'下周找个时间爬大罗山吧，你看周六还是周日合适？'},
+    {from:'张伟', email:'zhangwei@example.com', date:'上午 9:47', body:'周六天气不错，大罗山走起？\n\n早上七点在云顶茶舍集合，带上水和防晒。回程要是时间早的话一起吃个午饭。\n\n—— 阿伟'}
+  ]});
+add('inbox', { unread:true, label:'工作', date:'上午 8:15', from:'Cloudflare',
+  subject:'您的 Workers 免费配额即将用尽',
+  messages:[
+    {from:'Cloudflare', email:'cloudflare@example.com', date:'上午 8:15', body:'您好，\n\n您的账户在本月的 Workers 请求数已达到免费额度的 92%。超出后将按用量计费，或在额度重置前暂时限流。\n\n如需提升配额，请访问控制台升级计划。'}
+  ]});
+add('inbox', { unread:true, starred:true, label:'工作', date:'上午 8:02', from:'李娜',
+  subject:'Re: 项目排期确认',
+  messages:[
+    {from:'李娜', email:'lina@example.com', date:'9月1日', body:'ausu 你好，附件是整理后的排期表，UI 改版预计两周，后端同步进行。你确认一下时间点，没问题这周就启动。'},
+    {from:'我', email:'ausu@gmail.com', date:'9月1日', body:'没问题，两周可以。前端我先拉个 ui-dev 分支把视觉稿过一遍。'},
+    {from:'李娜', email:'lina@example.com', date:'上午 8:02', body:'好的，那这周启动。视觉稿今天下班前发你。'}
+  ]});
+add('inbox', { date:'上午 7:30', from:'腾讯云',
+  subject:'2026 年 9 月账单已生成',
+  messages:[
+    {from:'腾讯云', email:'no-reply@cloud.tencent.com', date:'上午 7:30', body:'尊敬的用户，您的 2026 年 9 月账单已生成，本月消费 ¥86.00，其中：\n· 云服务器 ¥69.00\n· 对象存储 ¥17.00\n\n请及时查收，如有疑问请联系客服。'}
+  ]});
+add('inbox', { starred:true, date:'9月2日', from:'王小明',
+  subject:'上次说的那份资料',
+  messages:[
+    {from:'王小明', email:'wangxm@example.com', date:'9月2日', body:'附件里是我整理的老邮件系统资料，都是 2004 到 2008 年间保存下来的界面截图，研究老界面的时候应该用得上。\n\n用完还我，哈哈。'}
+  ]});
+add('inbox', { label:'新闻', date:'9月2日', from:'V2EX',
+  subject:'每日精选：那些年我们用过的经典软件',
+  messages:[
+    {from:'V2EX', email:'daily@v2ex.com', date:'9月2日', body:'今天的热门话题：\n· 还有人记得 2004 年的 Gmail 吗？1GB 容量震撼整个互联网\n· 从 Winamp 到 Foobar2000：播放器二十年\n· 晒晒你最早的一个网名'}
+  ]});
+add('inbox', { label:'家庭', date:'9月1日', from:'陈阿姨',
+  subject:'周六来家吃饭',
+  messages:[
+    {from:'陈阿姨', email:'chenayi@example.com', date:'9月1日', body:'周六下午过来吃饭，你叔买了条鲈鱼。早点到，顺便把上次落在家的充电器带走。'}
+  ]});
+add('inbox', { date:'9月1日', from:'网易邮局',
+  subject:'账号安全提醒：异地登录',
+  messages:[
+    {from:'网易邮局', email:'service@163.com', date:'9月1日', body:'您的邮箱账号于 9 月 1 日 14:32 在新设备上登录，IP 归属地：浙江温州。如非本人操作，请立即修改密码。'}
+  ]});
+add('inbox', { date:'8月31日', from:'老赵',
+  subject:'今晚火锅？',
+  messages:[
+    {from:'老赵', email:'laozhao@example.com', date:'8月31日', body:'老地方，六点半，人到齐就开锅。别迟到！'}
+  ]});
+add('inbox', { label:'新闻', date:'8月30日', from:'Stack Overflow',
+  subject:'Weekly digest: top questions this week',
+  messages:[
+    {from:'Stack Overflow', email:'daily@stackoverflow.com', date:'8月30日', body:'Top questions this week:\n· Why does my CSS grid overflow in Safari?\n· How to debounce scroll events properly\n· D1 database vs traditional SQL in edge deployments'}
+  ]});
+add('inbox', { date:'8月30日', from:'菜鸟驿站',
+  subject:'您的包裹已到驿站',
+  messages:[
+    {from:'菜鸟驿站', email:'notify@cainiao.com', date:'8月30日', body:'您的包裹已到达【云锦驿站】，取件码 8-2-3021，请于今日 22:00 前领取。'}
+  ]});
+
+add('sent', { date:'9月2日', to:'张伟',
+  subject:'Re: 周末爬山的事',
+  messages:[{from:'我', email:'ausu@gmail.com', date:'9月2日', body:'就周六吧，我看了天气不错。七点云顶茶舍见，我带水。'}]});
+add('sent', { date:'9月1日', to:'李娜',
+  subject:'Re: 项目排期确认',
+  messages:[{from:'我', email:'ausu@gmail.com', date:'9月1日', body:'排期没问题，这周启动。前端我拉了 ui-dev 分支，先出复古视觉稿。'}]});
+add('sent', { date:'8月28日', to:'客服中心',
+  subject:'发票抬头修改申请',
+  messages:[{from:'我', email:'ausu@gmail.com', date:'8月28日', body:'你好，请把开票信息改为：温州某某科技有限公司，税号 91330…'}]});
+add('sent', { date:'8月27日', to:'王小明',
+  subject:'资料已收到，谢谢！',
+  messages:[{from:'我', email:'ausu@gmail.com', date:'8月27日', body:'资料收到，非常感谢！研究完就还你。'}]});
+
+add('drafts', { date:'9月2日', to:'', subject:'', body:'记一下：\n\n· 复古主题配色再校一版\n· 星标交互和旧版对齐\n' });
+add('drafts', { date:'8月29日', to:'李娜', subject:'关于复古主题合作的初步想法', body:'李娜你好：\n\n最近在做一个复古 Gmail 风格的界面主题，完成度不错。想问问能不能作为可选皮肤加进排期？\n\n附三张截图（稍后补）。' });
+
+add('spam', { unread:true, date:'9月1日', from:'奖励中心',
+  subject:'您有一笔退款待领取【重要】',
+  messages:[{from:'奖励中心', email:'prize@spam.example', date:'9月1日', body:'尊敬的用户：恭喜您获得退款资格，请点击链接填写银行卡信息……（此类邮件请勿相信）'}]});
+add('trash', { date:'8月29日', from:'购物通知',
+  subject:'订单已取消',
+  messages:[{from:'购物通知', email:'order@shop.example', date:'8月29日', body:'您的订单 2026082901 已取消，退款将在 3 个工作日内退回原支付渠道。'}]});
+
+/* ---------------- 工具 ---------------- */
+function selIds(){ return Object.keys(state.sel).filter(function(k){ return state.sel[k]; }); }
+function listEmails(){
+  if(state.view === 'search'){
+    var q = state.query.toLowerCase();
+    return E.filter(function(e){ return e.folder !== 'trash' && ((e.from+' '+e.subject+' '+e.snippet+' '+(e.to||'')).toLowerCase().indexOf(q) >= 0); });
+  }
+  if(state.view === 'starred'){
+    return E.filter(function(e){ return e.starred && e.folder !== 'trash' && e.folder !== 'spam'; });
+  }
+  return E.filter(function(e){ return e.folder === state.view; });
+}
+function flashLoading(){
+  var el = $('#loading');
+  el.classList.add('on');
+  setTimeout(function(){ el.classList.remove('on'); }, 420);
+}
+var bannerTimer = null;
+function showBanner(msg, isErr){
+  var b = $('#banner');
+  b.className = 'banner on' + (isErr ? ' err' : '');
+  b.innerHTML = (isErr ? '' : '<span class="ok">✓</span>') + esc(msg);
+  clearTimeout(bannerTimer);
+  bannerTimer = setTimeout(function(){ b.classList.remove('on'); }, 3200);
+}
+
+/* ---------------- 渲染 ---------------- */
+function render(flash){
+  var list = listEmails();
+
+  document.querySelectorAll('[data-view]').forEach(function(el){
+    el.classList.toggle('active', el.getAttribute('data-view') === state.view);
+  });
+
+  var unread = E.filter(function(e){ return e.folder === 'inbox' && e.unread; }).length;
+  var counts = {
+    inbox: unread,
+    starred: E.filter(function(e){ return e.starred && e.folder !== 'trash' && e.folder !== 'spam'; }).length,
+    sent: E.filter(function(e){ return e.folder === 'sent'; }).length,
+    drafts: E.filter(function(e){ return e.folder === 'drafts'; }).length,
+    spam: E.filter(function(e){ return e.folder === 'spam'; }).length,
+    trash: E.filter(function(e){ return e.folder === 'trash'; }).length
+  };
+  ['inbox','starred','sent','drafts','spam','trash'].forEach(function(k){
+    var t = $('#c-tab-'+k), s = $('#c-'+k);
+    var txt = counts[k] > 0 ? '(' + counts[k] + ')' : '';
+    if(t) t.textContent = (k === 'inbox' && !counts[k]) ? '' : txt;
+    if(s) s.textContent = txt;
+  });
+
+  document.title = 'Gmail - ' + (state.view === 'search' ? '搜索结果'
+    : (state.view === 'inbox' ? '收件箱' + (unread ? ' (' + unread + ')' : '') : FOLDERS[state.view]));
+
+  $('#toolbar').style.display = (state.view === 'list-hidden') ? 'none' : '';
+
+  var isList = $('#listview').style.display !== 'none';
+  if(isList){
+    var viewName = state.view === 'search' ? '搜索结果' : FOLDERS[state.view];
+    $('#pager').innerHTML = '<b>' + esc(viewName) + '</b>&nbsp; 1–' + list.length + '（共 ' + list.length + ' 封）';
+  }
+
+  var tb = $('#mailBody');
+  if(!list.length){
+    var msg = state.view === 'search' ? '没有找到与「' + state.query + '」相关的邮件。'
+      : (state.view === 'inbox' ? '哇哦，收件箱清空啦！（Inbox Zero）' : '没有邮件。');
+    tb.innerHTML = '<tr><td colspan="5"><div class="empty">' + esc(msg) + '</div></td></tr>';
+  } else {
+    tb.innerHTML = list.map(function(e){
+      var cls = (e.unread ? 'unread ' : '') + (state.sel[e.id] ? 'sel' : '');
+      var draft = e.folder === 'drafts';
+      var fromCell;
+      if(draft) fromCell = '<span class="dcell">草稿</span>';
+      else if(state.view === 'sent' || (state.view === 'search' && e.folder === 'sent')) fromCell = '<span>至 ' + esc(e.to) + '</span>';
+      else fromCell = esc(e.from);
+      var subj = e.subject ? esc(e.subject) : '<span class="dcell">（无主题）</span>';
+      return '<tr data-id="' + e.id + '" class="' + cls + '">' +
+        '<td><input type="checkbox" data-chk="' + e.id + '"' + (state.sel[e.id] ? ' checked' : '') + '></td>' +
+        '<td>' + (draft ? '' : '<span class="star" data-star="' + e.id + '">' + (e.starred ? STAR_ON : STAR_OFF) + '</span>') + '</td>' +
+        '<td>' + fromCell + '</td>' +
+        '<td>' + subj + (e.snippet ? '<span class="snip"> - ' + esc(e.snippet) + '</span>' : '') +
+          (e.label ? '<span class="lbltext" style="color:' + LABELS[e.label] + '">' + e.label + '</span>' : '') + '</td>' +
+        '<td class="date">' + esc(e.date) + '</td></tr>';
+    }).join('');
+  }
+
+  var ids = list.map(function(e){ return e.id; });
+  $('#checkAll').checked = ids.length > 0 && ids.every(function(i){ return state.sel[i]; });
+  $('#checkAll').indeterminate = !$('#checkAll').checked && ids.some(function(i){ return state.sel[i]; });
+
+  if(flash) flashLoading();
+}
+
+/* ---------------- 会话视图 ---------------- */
+function openThread(id){
+  var e = null;
+  for(var i = 0; i < E.length; i++) if(E[i].id === id) e = E[i];
+  if(!e) return;
+  if(e.folder === 'drafts'){ openCompose(e); return; }
+  e.unread = false;
+  state.sel = {};
+  state.thread = id;
+  $('#listview').style.display = 'none';
+  var tv = $('#threadview');
+  tv.style.display = 'block';
+  tv.style.flex = '1';
+
+  var backName = FOLDERS[state.view] || '收件箱';
+  var html = '<div class="backrow"><a id="backLink">‹ 返回' + esc(backName) + '</a>' +
+    '<button class="tbtn" data-thread-act="archive">归档</button>' +
+    '<button class="tbtn" data-thread-act="spam">举报垃圾邮件</button>' +
+    '<button class="tbtn" data-thread-act="delete">删除</button></div>' +
+    '<h1>' + (e.subject ? esc(e.subject) : '（无主题）') +
+      (e.label ? ' <span class="lbltext" style="color:' + LABELS[e.label] + '">' + e.label + '</span>' : '') + '</h1>';
+
+  html += e.messages.map(function(m){
+    return '<div class="msg"><div class="mh"><span class="who"><b>' + esc(m.from) + '</b> &lt;' + esc(m.email) + '&gt;</span>' +
+      '<span class="to">发送给：' + (m.from === '我' ? esc(e.to || '收件人') : '我') + '</span>' +
+      '<span class="when">' + esc(m.date) + '</span></div>' +
+      '<div class="mb">' + esc(m.body) + '</div></div>';
+  }).join('');
+
+  html += '<div class="replybox"><textarea id="replyText" placeholder="回复 ' + esc(e.messages[0].from) + '..."></textarea>' +
+    '<div class="actions-row"><button class="tbtn" id="btnReply" style="font-weight:bold">回复</button>' +
+    '<button class="tbtn" id="btnReplyAll">全部回复</button>' +
+    '<button class="tbtn" id="btnForward">转发</button></div></div>';
+  tv.innerHTML = html;
+
+  $('#backLink').onclick = backToList;
+  tv.querySelectorAll('[data-thread-act]').forEach(function(btn){
+    btn.onclick = function(){
+      var act = btn.getAttribute('data-thread-act');
+      if(act === 'archive'){ e.folder = 'archive'; showBanner('会话已归档。'); }
+      if(act === 'spam'){ e.folder = 'spam'; showBanner('已举报为垃圾邮件。'); }
+      if(act === 'delete'){ e.folder = 'trash'; showBanner('会话已移至回收站。'); }
+      backToList();
+    };
+  });
+  $('#btnReply').onclick = function(){ doReply(e); };
+  $('#btnReplyAll').onclick = function(){ doReply(e); };
+  $('#btnForward').onclick = function(){ doReply(e); };
+}
+function doReply(e){
+  var text = $('#replyText').value;
+  if(!text.trim()){ showBanner('请输入回复内容。', true); return; }
+  e.messages.push({from:'我', email:'ausu@gmail.com', date:'刚刚', body:text});
+  add('sent', { date:'刚刚', to: e.messages[0].from, subject:'Re: ' + (e.subject || ''), body:text,
+    messages:[{from:'我', email:'ausu@gmail.com', date:'刚刚', body:text}] });
+  openThread(e.id);
+  showBanner('您的邮件已发送。');
+}
+function backToList(){
+  state.thread = null;
+  state.compose = null;
+  $('#threadview').style.display = 'none';
+  $('#composeview').style.display = 'none';
+  $('#listview').style.display = 'block';
+  render(1);
+}
+
+/* ---------------- 撰写视图 ---------------- */
+function openCompose(draft){
+  state.thread = null;
+  state.compose = draft ? draft.id : null;
+  $('#listview').style.display = 'none';
+  $('#threadview').style.display = 'none';
+  $('#composeview').style.display = 'block';
+  $('#cTo').value = draft ? (draft.to || '') : '';
+  $('#cSubject').value = draft ? (draft.subject || '') : '';
+  $('#cBody').value = draft ? (draft.body || '') : '';
+}
+function closeCompose(){
+  $('#composeview').style.display = 'none';
+  $('#listview').style.display = 'block';
+  state.compose = null;
+  render(1);
+}
+function sendMail(){
+  var to = $('#cTo').value.trim();
+  var subject = $('#cSubject').value.trim();
+  var body = $('#cBody').value;
+  if(!to){ showBanner('请至少填写一位收件人。', true); return; }
+  add('sent', { date:'刚刚', to: to.split(/[,，;；]/)[0].trim() || to, subject: subject, body: body,
+    messages:[{from:'我', email:'ausu@gmail.com', date:'刚刚', body: body}] });
+  if(state.compose){
+    for(var i = 0; i < E.length; i++){
+      if(E[i].id === state.compose){ E.splice(i, 1); break; }
+    }
+  }
+  closeCompose();
+  showBanner('您的邮件已发送。');
+}
+function saveDraft(){
+  var to = $('#cTo').value.trim(), subject = $('#cSubject').value.trim(), body = $('#cBody').value;
+  if(state.compose){
+    for(var i = 0; i < E.length; i++){
+      if(E[i].id === state.compose){ E[i].to = to; E[i].subject = subject; E[i].body = body;
+        E[i].snippet = body.replace(/\s+/g,' ').slice(0,46); }
+    }
+  } else {
+    add('drafts', { date:'刚刚', to: to, subject: subject, body: body });
+  }
+  closeCompose();
+  showBanner('草稿已保存。');
+}
+
+/* ---------------- 事件绑定 ---------------- */
+document.querySelectorAll('[data-view]').forEach(function(el){
+  el.addEventListener('click', function(){
+    go(el.getAttribute('data-view'));
+  });
+});
+function go(view){
+  state.view = view;
+  state.prevView = view;
+  state.query = '';
+  state.sel = {};
+  $('#searchInput').value = '';
+  $('#threadview').style.display = 'none';
+  $('#composeview').style.display = 'none';
+  $('#listview').style.display = 'block';
+  render(1);
+}
+
+$('#mailBody').addEventListener('click', function(ev){
+  var star = ev.target.closest('.star');
+  if(star){
+    var sid = star.getAttribute('data-star');
+    for(var i = 0; i < E.length; i++) if(E[i].id === sid) E[i].starred = !E[i].starred;
+    render(false);
+    return;
+  }
+  if(ev.target.matches('input[type=checkbox]')) return;
+  var tr = ev.target.closest('tr[data-id]');
+  if(tr) openThread(tr.getAttribute('data-id'));
+});
+$('#mailBody').addEventListener('change', function(ev){
+  if(!ev.target.matches('input[data-chk]')) return;
+  state.sel[ev.target.getAttribute('data-chk')] = ev.target.checked;
+  render(false);
+});
+$('#checkAll').addEventListener('change', function(){
+  var on = $('#checkAll').checked;
+  listEmails().forEach(function(e){ state.sel[e.id] = on; });
+  render(false);
+});
+document.querySelectorAll('[data-sel]').forEach(function(a){
+  a.addEventListener('click', function(){
+    var mode = a.getAttribute('data-sel');
+    var list = listEmails();
+    if(mode === 'all') list.forEach(function(e){ state.sel[e.id] = true; });
+    if(mode === 'none') state.sel = {};
+    if(mode === 'read') list.forEach(function(e){ state.sel[e.id] = !e.unread; });
+    if(mode === 'unread') list.forEach(function(e){ state.sel[e.id] = !!e.unread; });
+    if(mode === 'starred') list.forEach(function(e){ state.sel[e.id] = !!e.starred; });
+    render(false);
+  });
+});
+
+function actOnSelection(act){
+  var ids = selIds();
+  if(!ids.length){ showBanner('请先选择会话。', true); return; }
+  ids.forEach(function(id){
+    for(var i = 0; i < E.length; i++){
+      if(E[i].id === id){
+        if(act === 'archive') E[i].folder = 'archive';
+        if(act === 'spam') E[i].folder = 'spam';
+        if(act === 'delete') E[i].folder = 'trash';
+      }
+    }
+  });
+  state.sel = {};
+  render(1);
+  showBanner(act === 'archive' ? '会话已归档。' : act === 'spam' ? '已举报为垃圾邮件。' : '会话已移至回收站。');
+}
+$('#btnArchive').onclick = function(){ actOnSelection('archive'); };
+$('#btnSpam').onclick = function(){ actOnSelection('spam'); };
+$('#btnDelete').onclick = function(){ actOnSelection('delete'); };
+$('#btnRefresh').onclick = function(){ render(1); };
+
+$('#composeBtn').addEventListener('click', function(){ openCompose(null); });
+$('#btnSend').onclick = sendMail;
+$('#btnSaveDraft').onclick = saveDraft;
+$('#btnDiscard').onclick = closeCompose;
+
+$('#searchForm').addEventListener('submit', function(ev){
+  ev.preventDefault();
+  var q = $('#searchInput').value.trim();
+  if(!q) return;
+  state.view = 'search';
+  state.query = q;
+  state.sel = {};
+  $('#threadview').style.display = 'none';
+  $('#composeview').style.display = 'none';
+  $('#listview').style.display = 'block';
+  render(1);
+});
+$('#searchWeb').onclick = function(){
+  var q = $('#searchInput').value.trim();
+  if(q) window.open('https://www.google.com/search?q=' + encodeURIComponent(q), '_blank');
+};
+
+$('#inviteLink').addEventListener('click', function(){
+  showBanner('邀请已发送。在 2004 年，这可是硬通货。');
+});
+
+document.addEventListener('keydown', function(ev){
+  if(ev.target.matches('input,textarea')) return;
+  if(ev.key === 'c' || ev.key === 'C'){ ev.preventDefault(); openCompose(null); }
+  if(ev.key === '/'){ ev.preventDefault(); $('#searchInput').focus(); }
+  if(ev.key === 'Escape'){
+    if(state.compose) closeCompose();
+    else if(state.thread) backToList();
+  }
+});
+
+render(false);
+setTimeout(flashLoading, 300);
+</script>
+</body>
+</html>

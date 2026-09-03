@@ -10,12 +10,22 @@
       </div>
     </div>
     <div class="toolbar">
-      <div v-if="uiStore.dark" class="sun-icon icon-item" @click="openDark($event)">
-        <Icon icon="mingcute:sun-fill"/>
-      </div>
-      <div v-else class="dark-icon icon-item" @click="openDark($event)">
-        <Icon icon="solar:moon-linear"/>
-      </div>
+      <template v-if="uiStore.win95">
+        <div class="win95-icon icon-item" :title="$t('win95Exit')" @click="exitWin95($event)">
+          <Icon icon="mdi:monitor-shimmer"/>
+        </div>
+      </template>
+      <template v-else>
+        <div v-if="uiStore.dark" class="sun-icon icon-item" @click="openDark($event)">
+          <Icon icon="mingcute:sun-fill"/>
+        </div>
+        <div v-else class="dark-icon icon-item" @click="openDark($event)">
+          <Icon icon="solar:moon-linear"/>
+        </div>
+        <div class="win95-icon icon-item" :title="$t('win95Mode')" @click="openWin95($event)">
+          <Icon icon="mdi:monitor"/>
+        </div>
+      </template>
       <div class="notice icon-item" @click="openNotice">
         <Icon icon="streamline-plump:announcement-megaphone"/>
       </div>
@@ -191,13 +201,11 @@ function openNotice() {
   uiStore.showNotice()
 }
 
-function openDark(e) {
-
-  const nextIsDark = !uiStore.dark
+function transitionTheme(e, flag, apply) {
   const root = document.documentElement
 
   if (!document.startViewTransition) {
-    switchDark(nextIsDark, root);
+    apply(root);
     return
   }
 
@@ -209,13 +217,13 @@ function openDark(e) {
   const endRadius = Math.hypot(maxX, maxY)
 
   // 标记切换目标，供 CSS 选择器使用
-  root.setAttribute('data-theme-to', nextIsDark ? 'dark' : 'light')
+  root.setAttribute('data-theme-to', flag)
   root.style.setProperty('--vt-x', `${x}px`)
   root.style.setProperty('--vt-y', `${y}px`)
   root.style.setProperty('--vt-end-radius', `${endRadius + 10}px`)
 
   const transition = document.startViewTransition(() => {
-    switchDark(nextIsDark, root);
+    apply(root);
   })
 
   transition.finished.finally(() => {
@@ -224,12 +232,48 @@ function openDark(e) {
   })
 }
 
+function openDark(e) {
+  const nextIsDark = !uiStore.dark
+  transitionTheme(e, nextIsDark ? 'dark' : 'light', (root) => switchDark(nextIsDark, root));
+}
+
+function openWin95(e) {
+  transitionTheme(e, 'dark', (root) => switchWin95(root))
+}
+
+function exitWin95(e) {
+  transitionTheme(e, 'light', (root) => switchBackFromWin95(root))
+}
+
+function isMobilePointer() {
+  return !window.matchMedia("(pointer: fine) and (hover: hover)").matches
+}
+
+function setMetaColor(color) {
+  const metaTag = document.getElementById('theme-color-meta');
+  metaTag.setAttribute('content', color)
+}
+
 function switchDark(nextIsDark, root) {
   root.setAttribute('class', nextIsDark ? 'dark' : '')
-  const metaTag = document.getElementById('theme-color-meta');
-  const isMobile =  !window.matchMedia("(pointer: fine) and (hover: hover)").matches;
-  metaTag.setAttribute('content', nextIsDark ? (isMobile ? '#141414' : '#000000') : (isMobile ? '#FFFFFF' : '#F1F1F1'));
+  setMetaColor(nextIsDark ? (isMobilePointer() ? '#141414' : '#000000') : (isMobilePointer() ? '#FFFFFF' : '#F1F1F1'))
   uiStore.dark = nextIsDark
+  uiStore.prevDark = nextIsDark
+}
+
+function switchWin95(root) {
+  uiStore.prevDark = uiStore.dark
+  uiStore.dark = false
+  uiStore.win95 = true
+  root.setAttribute('class', 'win95')
+  setMetaColor('#c0c0c0')
+}
+
+function switchBackFromWin95(root) {
+  uiStore.win95 = false
+  uiStore.dark = uiStore.prevDark
+  root.setAttribute('class', uiStore.dark ? 'dark' : '')
+  setMetaColor(uiStore.dark ? (isMobilePointer() ? '#141414' : '#000000') : (isMobilePointer() ? '#FFFFFF' : '#F1F1F1'))
 }
 
 function openSend() {
@@ -444,6 +488,10 @@ function formatName(email) {
 
   .sun-icon {
     font-size: 24px;
+  }
+
+  .win95-icon {
+    font-size: 20px;
   }
 
   .avatar {

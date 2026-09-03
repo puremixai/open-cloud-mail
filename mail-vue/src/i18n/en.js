@@ -245,6 +245,8 @@ const en = {
     restoreSuccessMsg: 'Restore successful',
     banRestore: 'Confirm banning {msg}?',
     logOut: 'Sign out',
+    win95Mode: 'Windows 95 retro mode',
+    win95Exit: 'Exit Windows 95 mode',
     clearContentConfirm: 'Are you sure to clear all content?',
     emptyRecipientMsg: 'Recipient email cannot be empty',
     emptySubjectMsg: 'Subject cannot be empty',
