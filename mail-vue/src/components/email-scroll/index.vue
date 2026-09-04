@@ -18,6 +18,8 @@
         <Icon v-perm="'email:delete'" class="icon delete" icon="fluent:mail-read-20-regular" width="21" height="21"
               v-if="getSelectedMailsIds().length > 0 && showUnread"
               @click="handleRead"/>
+        <Icon v-if="!uiStore.win95" class="icon" icon="mdi:format-line-spacing" width="18" height="18"
+              :title="$t('listDensity')" @click="toggleDense"/>
       </div>
 
       <div class="header-right">
@@ -46,7 +48,7 @@
                         :key="keyCount"
         >
           <template #default="{ data: item, index }" >
-            <div :class="['email-row', props.type, { 'right-checked': item.rightChecked }]"
+            <div :class="['email-row', props.type, { 'right-checked': item.rightChecked, dense: dense }]"
                  :data-checked="item.checked"
                  @click="jumpDetails(item)"
                  v-if="!item.expand"
@@ -133,6 +135,7 @@
           </template>
         </UseVirtualList>
       <skeletonBlock v-if="firstLoad && showFirstLoading"
+                       :dense="dense"
                        :rows="20"
                        :showStar="showStar"
                        :accountShow="accountShow"
@@ -140,6 +143,7 @@
                        :showUserInfo="showUserInfo"
                        :type="type"/>
       <skeletonBlock v-if="loading"
+                       :dense="dense"
                        :rows="skeletonRows"
                        :showStar="showStar"
                        :accountShow="accountShow"
@@ -147,7 +151,8 @@
                        :showUserInfo="showUserInfo"
                        :type="type"/>
       <div class="empty" v-if="noLoading && emailList.length === 0 && !loading">
-        <el-empty :image-size="isMobile ? 120 : null" :description="$t('noMessagesFound')"/>
+        <Icon class="empty-icon" icon="mdi:email-open-outline" width="44" height="44"/>
+        <div class="empty-text">{{ $t('noMessagesFound') }}</div>
       </div>
     </div>
     <el-dropdown
@@ -376,16 +381,24 @@ onActivated(() => {
   })
 })
 
+function onEscClose(e) {
+  if (e.key === 'Escape' && dropdownShow.value) {
+    dropdownRef.value?.handleClose()
+  }
+}
+
 onMounted(() => {
   timer = setInterval(() => {
     emailList.forEach(email => {
       email.formatCreateTime = fromNow(email.createTime);
     })
   }, 1000 * 60);
+  document.addEventListener('keydown', onEscClose)
 })
 
 onUnmounted(() => {
   clearInterval(timer)
+  document.removeEventListener('keydown', onEscClose)
 })
 
 getEmailList()
@@ -407,15 +420,24 @@ const list = computed(() => {
   return [...emailList, ...expandList]
 })
 
+/* 列表密度：紧凑/舒适两档（默认主题），localStorage 记忆 */
+const dense = ref(localStorage.getItem('email-dense') === '1')
+
+function toggleDense() {
+  dense.value = !dense.value
+  localStorage.setItem('email-dense', dense.value ? '1' : '0')
+}
+
 const itemHeight = computed(() => {
     /* Win95 主题桌面端：紧凑单行列表（与 style-win95.css 的行高保持一致） */
     if (uiStore.win95 && !isMobile.value) {
       return 26;
     }
+    /* 默认主题支持 紧凑/舒适 两档密度（工具栏行高图标切换，localStorage 记忆） */
     if (props.type === 'all-email') {
-      return isMobile.value ? 132 : 65;
+      return isMobile.value ? (dense.value ? 104 : 132) : (dense.value ? 52 : 65);
     } else  {
-      return isMobile.value ? 83 : 48;
+      return isMobile.value ? (dense.value ? 64 : 83) : (dense.value ? 36 : 48);
     }
 })
 
@@ -933,8 +955,10 @@ function loadData() {
 
   .empty {
     display: flex;
+    flex-direction: column;
     justify-content: center;
     align-items: center;
+    gap: 4px;
     height: 100%;
     width: 100%;
   }
@@ -977,6 +1001,30 @@ function loadData() {
     transition: var(--loading-hide-transition);
     opacity: 0;
   }
+}
+
+/* 紧凑密度（默认主题）：与 itemHeight 保持一致，骨架屏同步 */
+:deep(.email-row.dense) {
+  height: 36px;
+  &.all-email {
+    height: 52px;
+  }
+  @media (max-width: 1366px) {
+    height: 64px;
+    &.all-email {
+      height: 104px;
+    }
+  }
+}
+
+.empty-icon {
+  color: var(--secondary-text-color);
+}
+
+.empty-text {
+  margin-top: 10px;
+  color: var(--secondary-text-color);
+  font-size: 13px;
 }
 
 :deep(.email-row) {

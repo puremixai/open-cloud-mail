@@ -1,6 +1,6 @@
 <template>
   <div v-for="item in rows" style="background: var(--el-bg-color)">
-    <div :class="'email-row ' + type ">
+    <div :class="['email-row', type, { dense: dense }]">
       <el-checkbox disabled :class=" props.type === 'all-email' ? 'all-email-checkbox' : 'checkbox'"
       ></el-checkbox>
       <div class="pc-star" v-if="showStar">
@@ -99,6 +99,10 @@ const props = defineProps({
   type: {
     type: String,
     default: ''
+  },
+  dense: {
+    type: Boolean,
+    default: false
   }
 })
 import {Icon} from "@iconify/vue";

@@ -175,6 +175,16 @@
           {{ $t('win95SwitchTheme') }}
         </div>
         <div class="w95-dsep"></div>
+        <div class="w95-sm-item" @click.stop="startLogout">
+          <svg width="18" height="18" viewBox="0 0 16 16">
+            <circle cx="6.4" cy="8" r="5.4" fill="none" stroke="#000" stroke-width="1.6"/>
+            <path d="M6.4 2.6v5.4" stroke="#000" stroke-width="1.6"/>
+            <path d="M10 8h5.2" stroke="#000" stroke-width="1.6"/>
+            <path d="M12.8 5.6L15.2 8l-2.4 2.4" fill="none" stroke="#000" stroke-width="1.6"/>
+          </svg>
+          {{ $t('win95Logout') }}
+        </div>
+        <div class="w95-dsep"></div>
         <div class="w95-sm-item" @click.stop="startShutdown">
           <svg width="18" height="18" viewBox="0 0 16 16">
             <path d="M8 1v6" stroke="#000" stroke-width="1.8"/>
@@ -212,7 +222,7 @@
           <path d="M8 4.5A2.5 2.5 0 0 1 10.5 7H9.2A1.2 1.2 0 0 0 8 5.8z" fill="#404040"/>
           <circle cx="8" cy="12.5" r="1.2" fill="#404040"/>
         </svg>
-        <span class="w95-clock">{{ clock }}</span>
+        <span class="w95-clock" :title="clockTitle">{{ clock }}</span>
       </div>
     </div>
 
@@ -246,6 +256,7 @@ const userStore = useUserStore()
 
 const openIndex = ref(-1)
 const clock = ref('')
+const clockTitle = ref('')
 let clockTimer = null
 
 /* ---- 窗口状态：位置 / 最大化 / 最小化 ---- */
@@ -510,6 +521,18 @@ function startShutdown() {
   }).catch(() => {})
 }
 
+/* 注销：确认后调用已有的退出逻辑 */
+function startLogout() {
+  startOpen.value = false
+  ElMessageBox.confirm(t('win95LogoutConfirm'), t('win95Logout'), {
+    confirmButtonText: t('confirm'),
+    cancelButtonText: t('cancel'),
+    type: 'warning',
+  }).then(() => {
+    clickLogout()
+  }).catch(() => {})
+}
+
 /* 仅在收件箱页且列表已挂载时，编辑类菜单可用 */
 const onInbox = computed(() => route.meta?.name === 'email' && !!emailStore.emailScroll)
 
@@ -617,6 +640,7 @@ function clickLogout() {
 function tick() {
   const d = new Date()
   clock.value = String(d.getHours()).padStart(2, '0') + ':' + String(d.getMinutes()).padStart(2, '0')
+  clockTitle.value = d.toLocaleString()
 }
 
 function onDocClick() {

@@ -5,6 +5,9 @@
    ============================================================ */
 
 html.win95 {
+    /* Win95 独占根类（主题切换时与 dark 互斥），声明亮色 schema 兜底 */
+    color-scheme: light;
+
     /* ---- Element Plus 变量覆盖 ---- */
     --el-color-primary: #000080;
     --el-color-primary-dark-2: #000060;
@@ -592,7 +595,17 @@ html.win95 .w95-window.maximized {
     height: 100% !important;
     box-shadow: inset -1px -1px #0a0a0a, inset 1px 1px #dfdfdf, inset -2px -2px #808080, inset 2px 2px #ffffff;
 }
-html.win95 .w95-window.hidden { display: none; }
+/* 最小化/恢复：向任务栏方向收缩淡出，而非瞬间消失 */
+html.win95 .w95-window {
+    transition: opacity 160ms ease, transform 160ms ease, visibility 0s linear 0s;
+}
+html.win95 .w95-window.hidden {
+    opacity: 0;
+    transform: translateY(40px) scale(0.96);
+    pointer-events: none;
+    visibility: hidden;
+    transition: opacity 160ms ease, transform 160ms ease, visibility 0s linear 160ms;
+}
 
 /* ---- 标题栏 ---- */
 html.win95 .w95-titlebar {
@@ -833,6 +846,23 @@ html.win95 .w95-shutdown {
     color: #ffa500;
     font-size: 18px;
     font-weight: bold;
+}
+
+/* ---- TinyMCE 编辑器扫尾：方角 + 灰底工具栏 ---- */
+html.win95 .tox {
+    border-radius: 0 !important;
+    box-shadow: none !important;
+}
+html.win95 .tox .tox-toolbar__group,
+html.win95 .tox .tox-toolbar,
+html.win95 .tox .tox-toolbar-overlord,
+html.win95 .tox .tox-menubar {
+    background: #c0c0c0 !important;
+}
+html.win95 .tox .tox-tbtn,
+html.win95 .tox .tox-split-button,
+html.win95 .tox .tox-statusbar {
+    border-radius: 0 !important;
 }
 
 /* ---- 邮件列表表格化（对齐设计稿：紧凑单行 / 未读加粗 / 深蓝选中） ---- */

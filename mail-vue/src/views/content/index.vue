@@ -12,6 +12,7 @@
     </div>
     <div></div>
     <el-scrollbar class="scrollbar">
+      <el-backtop target=".scrollbar .el-scrollbar__wrap" :visibility-height="300" :right="30" :bottom="40"/>
       <div class="container">
         <div class="email-title">
           {{ email.subject }}
