@@ -681,3 +681,23 @@ html.win95 .email-container .email-row .title {
 }
 html.win95 .email-container .email-row .email-content { display: none; }
 html.win95 .email-container .email-row .unread { background: #0000dd !important; }
+
+/* ============ 登录页：桌面底色 + 窗口化卡片 ============ */
+/* 无背景图时：桌面青色，替换掉现代风格蓝色渐变 */
+html.win95 #login-box {
+    background: #008080 !important;
+}
+/* 登录卡片：Win95 窗口凸起边框，替换掉未定义的 --login-border 与半透明底 */
+html.win95 #login-box .container {
+    background: #c0c0c0 !important;
+    border: 1px solid #ffffff !important;
+    box-shadow: inset -1px -1px #0a0a0a, inset 1px 1px #dfdfdf, inset -2px -2px #808080, inset 2px 2px #ffffff, 4px 4px 0 rgba(0, 0, 0, 0.35) !important;
+}
+/* 灰底上的灰字对比不足，改用主题文字色 */
+html.win95 #login-box .form-desc { color: #404040; }
+html.win95 #login-box .switch { color: #000000; }
+html.win95 #login-box .switch span { color: #000080; }
+/* 有背景图时：图片作为壁纸铺满，卡片保持不透明窗口样式 */
+html.win95 #login-box .background-layer {
+    image-rendering: auto;
+}
