@@ -276,6 +276,7 @@ const en = {
     win95IdcardCopyTip: 'User ID copied',
     win95IdcardCopyEmailTip: 'Email copied',
     win95IdcardWish: 'Have a wonderful day!',
+    win95IdcardStyle: 'Switch card style',
     newMail: 'New Mail',
     menuFile: 'File',
     menuEdit: 'Edit',

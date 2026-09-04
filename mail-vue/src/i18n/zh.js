@@ -276,6 +276,7 @@ const zh = {
     win95IdcardCopyTip: '已复制用户 ID',
     win95IdcardCopyEmailTip: '已复制邮箱',
     win95IdcardWish: '祝你开心每一天！',
+    win95IdcardStyle: '切换卡片样式',
     newMail: '新邮件',
     menuFile: '文件',
     menuEdit: '编辑',

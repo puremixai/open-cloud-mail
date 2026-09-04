@@ -51,19 +51,67 @@
       <div class="w95-ditem" @click.stop="closeDeskMenu(); showAbout()">{{ $t('win95Properties') }}</div>
     </div>
 
-    <!-- 用户身份卡（票据样式，默认显示；点击复制用户 ID，右上角 × 可关闭） -->
-    <div class="w95-idcard" v-if="userStore.user && !idcardClosed" @click="copyUserId"
-         :style="idcardStyle" @mousedown="onIdcardDown"
+    <!-- 用户身份卡（票据 / 银行卡两种样式，可切换；点击复制用户 ID，右上角 × 可关闭） -->
+    <div class="w95-idcard" :class="{ bank: idcardBank }" v-if="userStore.user && !idcardClosed"
+         @click="copyUserId" :style="idcardStyle" @mousedown="onIdcardDown"
          :title="$t('win95IdcardCopyTip')">
+      <span class="w95-idcard-style" @click.stop="switchIdcardStyle" :title="$t('win95IdcardStyle')">⇄</span>
       <span class="w95-idcard-close" @click.stop="closeIdcard">×</span>
-      <div class="w95-idcard-head">
-        <span class="w95-idcard-brand">{{ settingStore.settings.title || 'MAIL' }}</span>
-      </div>
-      <div class="w95-idcard-email" :title="$t('win95IdcardCopyEmailTip')"
-           @click.stop="copyText(userStore.user.email, 'win95IdcardCopyEmailTip')">{{ userStore.user.email }}</div>
-      <div class="w95-idcard-no">ID · {{ userStore.user.userId }}</div>
-      <div class="w95-idcard-dash"></div>
-      <div class="w95-idcard-foot">{{ $t('win95IdcardWish') }}</div>
+      <!-- 银行卡样式：低多边形花纹 + 品牌右上 + 掩码卡号 -->
+      <template v-if="idcardBank">
+        <svg class="w95-bank-svg" viewBox="0 0 340 214" preserveAspectRatio="none" aria-hidden="true">
+          <defs>
+            <linearGradient id="w95BankFade" x1="0" y1="0" x2="1" y2="0">
+              <stop offset="0" stop-color="#0d5c66" stop-opacity="0"/>
+              <stop offset="1" stop-color="#0d5c66" stop-opacity="0.55"/>
+            </linearGradient>
+          </defs>
+          <polygon points="0,0 340,0 150,214" fill="rgba(255,255,255,0.05)"/>
+          <polygon points="340,0 340,214 150,214" fill="rgba(0,0,0,0.06)"/>
+          <polygon points="0,0 150,214 0,214" fill="rgba(0,0,0,0.04)"/>
+          <!-- 低多边形信封 -->
+          <polygon points="26,64 112,64 112,130" fill="#9fd8d6"/>
+          <polygon points="112,64 198,64 112,130" fill="#5cb8bd"/>
+          <polygon points="26,64 112,130 26,170" fill="#178a94"/>
+          <polygon points="198,64 198,170 112,130" fill="#0f6a75"/>
+          <polygon points="112,130 198,170 26,170" fill="#0b4f58"/>
+          <polygon points="26,64 64,64 45,100" fill="#6fc4c6"/>
+          <polygon points="160,64 198,64 178,104" fill="#2a9aa3"/>
+          <polygon points="26,170 60,170 40,140" fill="#2a9aa3"/>
+          <polygon points="170,170 198,170 184,136" fill="#14808c"/>
+          <polygon points="216,52 236,60 220,70" fill="#9fd8d6" opacity=".8"/>
+          <polygon points="246,84 258,76 256,92" fill="#5cb8bd" opacity=".7"/>
+          <polygon points="208,96 220,92 214,104" fill="#ffffff" opacity=".5"/>
+          <polygon points="150,0 340,0 340,214 150,214" fill="url(#w95BankFade)"/>
+        </svg>
+        <div class="w95-bank-brand">
+          <svg width="20" height="20" viewBox="0 0 16 16" aria-hidden="true">
+            <rect x="3.4" y="3.4" width="9.2" height="9.2" fill="#e4342f" transform="rotate(45 8 8)"/>
+            <path d="M5 6.4h6v3.2H5z" fill="#fff"/>
+            <path d="M5 6.4l3 1.8 3-1.8" stroke="#e4342f" stroke-width=".7" fill="none"/>
+          </svg>
+          <span>{{ settingStore.settings.title || 'MAIL' }}</span>
+        </div>
+        <div class="w95-bank-tier">{{ $t('win95Idcard') }}</div>
+        <svg class="w95-bank-wave" width="26" height="26" viewBox="0 0 16 16" aria-hidden="true">
+          <path d="M5 3a7.5 7.5 0 0 1 0 10M8 4.5a5.5 5.5 0 0 1 0 7M11 6a3.5 3.5 0 0 1 0 4" fill="none" stroke="#fff" stroke-width="1.4" stroke-linecap="round" opacity=".9"/>
+        </svg>
+        <div class="w95-bank-num">{{ bankNum }}</div>
+        <div class="w95-bank-email" :title="$t('win95IdcardCopyEmailTip')"
+             @click.stop="copyText(userStore.user.email, 'win95IdcardCopyEmailTip')">{{ userStore.user.email }}</div>
+        <div class="w95-bank-circles" aria-hidden="true"><i></i><i></i></div>
+      </template>
+      <!-- 票据样式 -->
+      <template v-else>
+        <div class="w95-idcard-head">
+          <span class="w95-idcard-brand">{{ settingStore.settings.title || 'MAIL' }}</span>
+        </div>
+        <div class="w95-idcard-email" :title="$t('win95IdcardCopyEmailTip')"
+             @click.stop="copyText(userStore.user.email, 'win95IdcardCopyEmailTip')">{{ userStore.user.email }}</div>
+        <div class="w95-idcard-no">ID · {{ userStore.user.userId }}</div>
+        <div class="w95-idcard-dash"></div>
+        <div class="w95-idcard-foot">{{ $t('win95IdcardWish') }}</div>
+      </template>
     </div>
 
     <!-- 主窗口：可拖动 / 最小化 / 最大化 / 关闭 -->
@@ -270,6 +318,21 @@ const iconSel = ref('')
 /* 用户身份卡关闭状态（持久化；桌面「身份卡」图标双击可重新打开） */
 const idcardClosed = ref(localStorage.getItem('w95-idcard-closed') === '1')
 
+/* 身份卡样式：ticket 票据 / bank 银行卡，持久化 */
+const idcardBank = ref(localStorage.getItem('w95-idcard-style') === 'bank')
+
+function switchIdcardStyle() {
+  idcardBank.value = !idcardBank.value
+  localStorage.setItem('w95-idcard-style', idcardBank.value ? 'bank' : 'ticket')
+}
+
+/* 银行卡样式下的掩码卡号：•••• + 用户 ID 末 4 位 */
+const bankNum = computed(() => {
+  const id = String(userStore.user?.userId ?? '')
+  const tail = id.slice(-4).padStart(Math.min(4, id.length), '•')
+  return `•••• ${tail}`
+})
+
 function closeIdcard() {
   if (idcardDragged) {
     idcardDragged = false
@@ -312,7 +375,7 @@ function onIdcardMove(e) {
   if (!idcardDrag.moved && Math.abs(dx) + Math.abs(dy) < 4) return
   idcardDrag.moved = true
   idcardDragged = true
-  idcardPos.x = Math.max(4, Math.min(window.innerWidth - 324, idcardDrag.ox + dx))
+  idcardPos.x = Math.max(4, Math.min(window.innerWidth - (idcardBank.value ? 348 : 324), idcardDrag.ox + dx))
   idcardPos.y = Math.max(4, Math.min(window.innerHeight - 80, idcardDrag.oy + dy))
 }
 
