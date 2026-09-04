@@ -298,8 +298,15 @@ html.win95 .el-aside {
     background: #c0c0c0;
     box-shadow: inset -1px 0 0 #0a0a0a, inset -2px 0 0 #808080;
 }
+/* 内容区左缘：深+灰两tone竖线，与侧边菜单栏形成清晰分界
+   （aside 自身的右缘内阴影会被 el-menu 等灰底子元素盖住，所以画在内容区这一侧） */
+html.win95 .main-container {
+    border-left: 1px solid #0a0a0a;
+    box-shadow: inset 2px 0 0 #808080;
+}
 html.win95 .el-aside .title {
-    height: 28px;
+    /* 与右侧 el-header（--el-header-height: 40px）同高，两栏顶部对齐 */
+    height: 40px;
     margin: 4px;
     max-width: none;
     padding: 0 6px;
@@ -430,6 +437,103 @@ html.win95 .w95-dicon span {
 html.win95 .w95-dicon.sel span {
     background: #000080;
     outline: 1px dotted #ffff00;
+}
+
+/* ---- 用户身份卡（票据样式，默认显示在桌面右上，点击复制用户 ID） ---- */
+html.win95 .w95-idcard {
+    position: absolute;
+    top: 56px;
+    right: 28px;
+    width: 320px;
+    padding: 18px 22px 14px;
+    background: linear-gradient(160deg, #ffffff 0%, #eaf2fd 100%);
+    border-radius: 14px !important;
+    box-shadow: 0 12px 32px rgba(0, 0, 0, 0.35);
+    cursor: pointer;
+    overflow: hidden;
+}
+html.win95 .w95-idcard-close {
+    position: absolute;
+    top: 6px;
+    right: 12px;
+    color: #9aa3af;
+    font-size: 16px;
+    line-height: 1;
+    padding: 2px;
+}
+html.win95 .w95-idcard-close:hover { color: #13181d; }
+html.win95 .w95-idcard-head {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 8px;
+}
+html.win95 .w95-idcard-brand {
+    font-weight: 900;
+    font-size: 15px;
+    letter-spacing: 0.5px;
+    color: #13181d;
+    white-space: nowrap;
+}
+html.win95 .w95-idcard-brand::before {
+    content: "✉";
+    display: inline-flex;
+    width: 20px;
+    height: 20px;
+    align-items: center;
+    justify-content: center;
+    background: #13181d;
+    color: #ffffff;
+    font-size: 12px;
+    border-radius: 6px !important;
+    margin-right: 8px;
+    vertical-align: -4px;
+}
+html.win95 .w95-idcard-tag {
+    color: #2f7cf6;
+    font-size: 12px;
+    font-weight: 800;
+    letter-spacing: 2px;
+    text-transform: uppercase;
+    white-space: nowrap;
+}
+html.win95 .w95-idcard-no {
+    margin-top: 10px;
+    font-size: 30px;
+    font-weight: 900;
+    color: #13181d;
+    letter-spacing: 1px;
+    line-height: 1.2;
+}
+html.win95 .w95-idcard-sub {
+    margin-top: 6px;
+    font-size: 13px;
+    color: #6b7280;
+    word-break: break-all;
+}
+html.win95 .w95-idcard-dash {
+    margin: 14px -22px 10px;
+    border-top: 2px dashed #d7dce6;
+    position: relative;
+}
+/* 虚线两端的打孔半圆（填充桌面青色，与背景融合形成撕票效果） */
+html.win95 .w95-idcard-dash::before,
+html.win95 .w95-idcard-dash::after {
+    content: "";
+    position: absolute;
+    top: -10px;
+    width: 20px;
+    height: 20px;
+    background: #008080;
+    border-radius: 50% !important;
+}
+html.win95 .w95-idcard-dash::before { left: -9px; }
+html.win95 .w95-idcard-dash::after { right: -9px; }
+html.win95 .w95-idcard-foot {
+    text-align: center;
+    font-size: 13px;
+    color: #4b5563;
+    word-break: break-all;
 }
 
 /* ---- 窗口（可拖动 / 最小化 / 最大化） ---- */

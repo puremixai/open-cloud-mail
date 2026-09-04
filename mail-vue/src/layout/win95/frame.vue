@@ -33,6 +33,20 @@
       <span>{{ $t('win95Homepage') }}</span>
     </div>
 
+    <!-- 用户身份卡（票据样式，默认显示；点击复制用户 ID，右上角 × 可关闭） -->
+    <div class="w95-idcard" v-if="userStore.user && !idcardClosed" @click="copyUserId"
+         :title="$t('win95IdcardCopyTip')">
+      <span class="w95-idcard-close" @click.stop="idcardClosed = true">×</span>
+      <div class="w95-idcard-head">
+        <span class="w95-idcard-brand">CLOUD MAIL</span>
+        <span class="w95-idcard-tag">{{ $t('win95IdcardTag') }}</span>
+      </div>
+      <div class="w95-idcard-no">{{ userStore.user.userId }}</div>
+      <div class="w95-idcard-sub">{{ userStore.user.email }}</div>
+      <div class="w95-idcard-dash"></div>
+      <div class="w95-idcard-foot">{{ $t('win95IdcardAccount') }}：{{ userStore.user.account?.email || userStore.user.email }}</div>
+    </div>
+
     <!-- 主窗口：可拖动 / 最小化 / 最大化 / 关闭 -->
     <div
         v-show="!winClosed"
@@ -199,6 +213,7 @@ import { useI18n } from 'vue-i18n'
 import { useUiStore } from '@/store/ui.js'
 import { useEmailStore } from '@/store/email.js'
 import { useSettingStore } from '@/store/setting.js'
+import { useUserStore } from '@/store/user.js'
 import { hasPerm } from '@/perm/perm.js'
 import { logout } from '@/request/login.js'
 
@@ -208,6 +223,7 @@ const router = useRouter()
 const uiStore = useUiStore()
 const emailStore = useEmailStore()
 const settingStore = useSettingStore()
+const userStore = useUserStore()
 
 const openIndex = ref(-1)
 const clock = ref('')
@@ -221,6 +237,14 @@ const minimized = ref(false)
 const startOpen = ref(false)
 const shutdownScreen = ref(false)
 const iconSel = ref('')
+/* 用户身份卡关闭状态（仅当前页面生命周期，刷新后默认重新显示） */
+const idcardClosed = ref(false)
+
+function copyUserId() {
+  navigator.clipboard.writeText(String(userStore.user.userId)).then(() => {
+    ElMessage({ message: t('win95IdcardCopyTip'), type: 'success', plain: true })
+  })
+}
 /* 邮箱窗口已关闭（Win95 关闭应用语义：窗口与任务栏按钮消失，桌面/开始菜单可重开） */
 const winClosed = ref(false)
 /* 因视口过小而自动最大化（视口恢复后自动还原，不干扰手动最大化） */
