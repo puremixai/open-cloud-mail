@@ -299,16 +299,18 @@ html.win95 .el-aside {
     box-shadow: inset -1px 0 0 #0a0a0a, inset -2px 0 0 #808080;
 }
 html.win95 .el-aside .title {
-    height: 20px;
-    margin: 3px;
+    height: 28px;
+    margin: 4px;
     max-width: none;
-    padding: 0 3px;
-    gap: 4px;
-    background: #000080 !important;
+    padding: 0 6px;
+    gap: 6px;
+    background: linear-gradient(90deg, #000080 0%, #1084d0 100%) !important;
     color: #ffffff;
-    font-size: 12px;
+    font-size: 14px;
     font-weight: bold;
     justify-content: flex-start;
+    letter-spacing: 0.5px;
+    text-shadow: none;
 }
 html.win95 .el-aside .title > div {
     max-width: none;
@@ -316,8 +318,8 @@ html.win95 .el-aside .title > div {
     font-weight: bold;
 }
 html.win95 .el-aside .title svg {
-    width: 14px;
-    height: 14px;
+    width: 16px;
+    height: 16px;
     flex-shrink: 0;
 }
 html.win95 .el-aside .manage-title { color: #404040; }
