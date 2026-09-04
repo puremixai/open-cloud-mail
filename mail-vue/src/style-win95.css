@@ -376,8 +376,8 @@ html.win95 .send .write-box .title .sender-name,
 html.win95 .send .write-box .title .send-email {
     color: #ffffff !important;
 }
-/* 列表工具条：凹陷分隔 + 灰底 */
-html.win95 .email-container .header-actions {
+/* 列表/详情等工具条：灰底 + 底部分隔线，与菜单栏形成清晰分界 */
+html.win95 .header-actions {
     background: #c0c0c0;
     box-shadow: inset 0 -2px 0 #808080;
 }
@@ -542,7 +542,10 @@ html.win95 .w95-body {
     flex: 1;
     min-height: 0;
     display: flex;
-    user-select: auto;
+    /* 注意必须是显式的 text：桌面层 .w95-desktop 是 user-select:none，
+       规范里 auto 会解析为父元素的生效值（即 none），写 auto 等于没恢复 */
+    user-select: text;
+    -webkit-user-select: text;
 }
 html.win95 .w95-body .layout {
     position: relative;
@@ -690,6 +693,19 @@ html.win95 .w95-shutdown {
 }
 
 /* ---- 邮件列表表格化（对齐设计稿：紧凑单行 / 未读加粗 / 深蓝选中） ---- */
+/* 列表行的背景/分隔线会盖住滚动面板的内凹浮雕边框，
+   用固定叠加层重绘边框，保证四边线条始终完整 */
+html.win95 .email-container .scroll {
+    position: relative;
+}
+html.win95 .email-container .scroll::after {
+    content: "";
+    position: absolute;
+    inset: 0;
+    z-index: 3;
+    pointer-events: none;
+    box-shadow: inset -1px -1px #ffffff, inset 1px 1px #808080, inset -2px -2px #dfdfdf, inset 2px 2px #0a0a0a;
+}
 html.win95 .email-container .email-row {
     box-shadow: none !important;
     border-bottom: 1px solid #f2f2f2;
