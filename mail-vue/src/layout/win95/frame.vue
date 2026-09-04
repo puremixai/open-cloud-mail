@@ -56,7 +56,6 @@
          :style="idcardStyle" @mousedown="onIdcardDown"
          :title="$t('win95IdcardCopyTip')">
       <span class="w95-idcard-close" @click.stop="closeIdcard">×</span>
-      <span class="w95-idcard-tag">{{ $t('win95IdcardTag') }}</span>
       <div class="w95-idcard-head">
         <span class="w95-idcard-brand">{{ settingStore.settings.title || 'MAIL' }}</span>
       </div>

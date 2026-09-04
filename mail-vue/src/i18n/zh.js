@@ -263,7 +263,6 @@ const zh = {
     win95ShutdownScreen: '现在您可以放心地关闭计算机了。',
     win95Ready: '就绪',
     win95AboutBody: '版本 4.00.950（仿古模式）——向 Windows 95 致敬。',
-    win95IdcardTag: '用户身份卡',
     win95Idcard: '身份卡',
     win95Arrange: '排列图标',
     win95Refresh: '刷新',

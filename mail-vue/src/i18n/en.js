@@ -263,7 +263,6 @@ const en = {
     win95ShutdownScreen: "It's now safe to turn off your computer.",
     win95Ready: 'Ready',
     win95AboutBody: 'Version 4.00.950 (retro mode) — a tribute to Windows 95.',
-    win95IdcardTag: 'USER ID CARD',
     win95Idcard: 'ID Card',
     win95Arrange: 'Arrange Icons',
     win95Refresh: 'Refresh',
