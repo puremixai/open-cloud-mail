@@ -687,18 +687,42 @@ html.win95 .w95-shutdown {
     font-weight: bold;
 }
 
-/* ---- 邮件列表表格化（对齐设计稿四列：复选框/发件人/主题/日期） ---- */
+/* ---- 邮件列表表格化（对齐设计稿：紧凑单行 / 未读加粗 / 深蓝选中） ---- */
 html.win95 .email-container .email-row {
     box-shadow: none !important;
     border-bottom: 1px solid #f2f2f2;
 }
 html.win95 .email-container .email-row:hover { background: #f0f0f8 !important; }
-html.win95 .email-container .email-row[data-checked="true"] { background: #c2dbff !important; }
 html.win95 .email-container .email-row .title {
     grid-template-columns: 190px 1fr !important;
 }
 html.win95 .email-container .email-row .email-content { display: none; }
-html.win95 .email-container .email-row .unread { background: #0000dd !important; }
+
+/* 桌面端紧凑单行：压缩行高、隐藏辅助信息，一屏显示更多邮件；
+   移动端（<1367px）保持原有双行布局 */
+@media (min-width: 1367px) {
+    html.win95 .email-container .email-row {
+        height: 26px;
+        min-height: 26px;
+        padding: 0 6px;
+        font-size: 12px;
+    }
+    html.win95 .email-container .email-row.all-email {
+        height: 26px;
+    }
+    html.win95 .email-container .email-row .el-checkbox {
+        height: auto;
+        padding: 0 8px 0 4px;
+    }
+    html.win95 .email-container .email-row svg { width: 15px; height: 15px; }
+    html.win95 .email-container .email-row .user-info,
+    html.win95 .email-container .email-row .unread { display: none; }
+    html.win95 .email-container .email-row .email-time { color: #808080; }
+    html.win95 .email-container .email-row[data-checked="true"] { background: #000080 !important; }
+    html.win95 .email-container .email-row[data-checked="true"] .email-sender,
+    html.win95 .email-container .email-row[data-checked="true"] .email-subject,
+    html.win95 .email-container .email-row[data-checked="true"] .email-time { color: #ffffff; }
+}
 
 /* ============ 登录页：桌面底色 + 窗口化卡片 ============ */
 /* 无背景图时：桌面青色，替换掉现代风格蓝色渐变 */

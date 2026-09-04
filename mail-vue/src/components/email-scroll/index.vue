@@ -400,6 +400,10 @@ const list = computed(() => {
 })
 
 const itemHeight = computed(() => {
+    /* Win95 主题桌面端：紧凑单行列表（与 style-win95.css 的行高保持一致） */
+    if (uiStore.win95 && !isMobile.value) {
+      return 26;
+    }
     if (props.type === 'all-email') {
       return isMobile.value ? 132 : 65;
     } else  {
