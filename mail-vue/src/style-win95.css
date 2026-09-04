@@ -701,3 +701,8 @@ html.win95 #login-box .switch span { color: #000080; }
 html.win95 #login-box .background-layer {
     image-rendering: auto;
 }
+/* 按钮内的图片头像（如 LinuxDo 图标）保持圆形裁切，避免方形裁切露出图片白底四角 */
+html.win95 .el-button .el-avatar {
+    border-radius: 50% !important;
+    overflow: hidden;
+}
