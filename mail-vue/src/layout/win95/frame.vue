@@ -189,25 +189,49 @@ const minimized = ref(false)
 const startOpen = ref(false)
 const shutdownScreen = ref(false)
 const iconSel = ref('')
+/* 因视口过小而自动最大化（视口恢复后自动还原，不干扰手动最大化） */
+const autoMaxed = ref(false)
 
 let drag = null
+let resizeTimer = null
 
 const winStyle = computed(() => {
   if (maximized.value) return {}
   return { left: win.x + 'px', top: win.y + 'px', width: win.w + 'px', height: win.h + 'px' }
 })
 
+function isSmallViewport() {
+  return window.innerWidth < 1000 || window.innerHeight < 640
+}
+
 function initWindowSize() {
   const vw = window.innerWidth
   const vh = window.innerHeight
-  if (vw < 1000 || vh < 640) {
+  if (isSmallViewport()) {
     maximized.value = true
+    autoMaxed.value = true
     return
   }
   win.w = Math.min(920, vw - 60)
   win.h = Math.min(620, vh - 110)
   win.x = Math.max(10, (vw - win.w) / 2 - 14)
   win.y = Math.max(6, (vh - 28 - win.h) / 2 - 12)
+}
+
+function handleResize() {
+  if (resizeTimer) clearTimeout(resizeTimer)
+  resizeTimer = setTimeout(() => {
+    if (isSmallViewport()) {
+      if (!maximized.value) {
+        maximized.value = true
+        autoMaxed.value = true
+      }
+    } else if (autoMaxed.value) {
+      maximized.value = false
+      autoMaxed.value = false
+      initWindowSize()
+    }
+  }, 150)
 }
 
 function onTitlebarDown(e) {
@@ -231,6 +255,8 @@ function onUp() {
 
 function toggleMax() {
   maximized.value = !maximized.value
+  /* 手动切换后，resize 不再自动跟随视口大小 */
+  autoMaxed.value = false
 }
 
 function minimize() {
@@ -402,10 +428,18 @@ function onDocClick() {
   startOpen.value = false
 }
 
+function onKeydown(e) {
+  if (e.key !== 'Escape') return
+  openIndex.value = -1
+  startOpen.value = false
+}
+
 onMounted(() => {
   document.addEventListener('click', onDocClick)
   document.addEventListener('mousemove', onMove)
   document.addEventListener('mouseup', onUp)
+  document.addEventListener('keydown', onKeydown)
+  window.addEventListener('resize', handleResize)
   initWindowSize()
   tick()
   clockTimer = setInterval(tick, 10000)
@@ -415,6 +449,9 @@ onBeforeUnmount(() => {
   document.removeEventListener('click', onDocClick)
   document.removeEventListener('mousemove', onMove)
   document.removeEventListener('mouseup', onUp)
+  document.removeEventListener('keydown', onKeydown)
+  window.removeEventListener('resize', handleResize)
+  if (resizeTimer) clearTimeout(resizeTimer)
   clearInterval(clockTimer)
 })
 </script>
