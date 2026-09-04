@@ -3,7 +3,7 @@
     <div>
       <div class="title" >
         <Icon icon="mdi:email-outline" width="24" height="24" />
-        <div>{{settingStore.settings.title}}</div>
+        <div v-if="settingStore.settings.title">{{settingStore.settings.title}}</div>
       </div>
       <el-menu :collapse="false" text-color="#fff" active-text-color="#fff" style="margin-top: 10px">
         <el-menu-item @click="router.push({name: 'email'})" index="email"

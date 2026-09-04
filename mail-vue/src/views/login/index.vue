@@ -4,7 +4,7 @@
     <MailLoader v-if="introShow" @done="introShow = false" />
     <div class="form-wrapper">
       <div class="container">
-        <span class="form-title">{{ settingStore.settings.title }}</span>
+        <span class="form-title" v-if="settingStore.settings.title">{{ settingStore.settings.title }}</span>
         <span class="form-desc" v-if="show === 'login'">{{ $t('loginTitle') }}</span>
         <span class="form-desc" v-else>{{ $t('regTitle') }}</span>
         <div v-show="show === 'login'">
@@ -517,7 +517,9 @@ function refreshWebsiteConfig() {
     if (!suffix.value && setting.domainList.length > 0) {
       suffix.value = setting.domainList[0]
     }
-    document.title = setting.title
+    if (setting.title) {
+      document.title = setting.title
+    }
   }).catch(e => {
     console.error(e)
   })

@@ -388,7 +388,8 @@ const activeScroll = computed(() => {
 
 const windowTitle = computed(() => {
   const page = route.meta?.title ? t(route.meta.title) : ''
-  return page ? `${page} - ${settingStore.settings.title}` : settingStore.settings.title || 'Mail'
+  const title = settingStore.settings.title || 'Mail'
+  return page ? `${page} - ${title}` : title
 })
 
 const statusText = computed(() => {
@@ -465,7 +466,7 @@ function runItem(item) {
 
 function showAbout() {
   ElMessageBox.alert(
-      `${settingStore.settings.title} — ${t('win95AboutBody')}`,
+      `${settingStore.settings.title || 'Mail'} — ${t('win95AboutBody')}`,
       t('about'),
       { confirmButtonText: t('confirm') }
   )

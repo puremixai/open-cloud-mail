@@ -35,7 +35,9 @@ export async function init() {
         setting = s;
         settingStore.settings = setting;
         settingStore.domainList = setting.domainList;
-        document.title = setting.title;
+        if (setting.title) {
+            document.title = setting.title;
+        }
 
         if (user) {
             accountStore.currentAccountId = user.account.accountId;
@@ -52,6 +54,8 @@ export async function init() {
         setting = await websiteConfig();
         settingStore.settings = setting;
         settingStore.domainList = setting.domainList;
-        document.title = setting.title;
+        if (setting.title) {
+            document.title = setting.title;
+        }
     }
 }
