@@ -351,6 +351,9 @@ defineExpose({
   deleteEmail,
   addItem,
   handleList,
+  // handleRead 是 const 箭头函数（声明在后），直接暴露会踩 TDZ，用包装函数延迟求值
+  handleRead: (...args) => handleRead(...args),
+  handleCheckAllChange,
   emailList,
   firstLoad,
   latestEmail,

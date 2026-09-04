@@ -1,23 +1,25 @@
 <template>
-  <el-container class="layout">
-    <el-aside
-        class="aside"
-        :class="uiStore.asideShow ? 'aside-show' : 'el-aside-hide'">
-      <Aside />
-    </el-aside>
-    <div
-        :class="(uiStore.asideShow && isMobile)? 'overlay-show':'overlay-hide'"
-        @click="uiStore.asideShow = false"
-    ></div>
-    <el-container class="main-container">
-      <el-main>
-        <el-header>
+  <Win95Frame>
+    <el-container class="layout">
+      <el-aside
+          class="aside"
+          :class="uiStore.asideShow ? 'aside-show' : 'el-aside-hide'">
+        <Aside />
+      </el-aside>
+      <div
+          :class="(uiStore.asideShow && isMobile)? 'overlay-show':'overlay-hide'"
+          @click="uiStore.asideShow = false"
+      ></div>
+      <el-container class="main-container">
+        <el-main>
+          <el-header>
             <Header />
-        </el-header>
-        <Main />
-      </el-main>
+          </el-header>
+          <Main />
+        </el-main>
+      </el-container>
     </el-container>
-  </el-container>
+  </Win95Frame>
   <writer ref="writerRef" />
 </template>
 
@@ -25,6 +27,7 @@
 import Aside from '@/layout/aside/index.vue'
 import Header from '@/layout/header/index.vue'
 import Main from '@/layout/main/index.vue'
+import Win95Frame from '@/layout/win95/frame.vue'
 import { ref, onMounted, onBeforeUnmount } from 'vue'
 import {useUiStore} from "@/store/ui.js";
 import writer from '@/layout/write/index.vue'

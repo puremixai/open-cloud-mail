@@ -7,6 +7,7 @@
     <div v-perm="'email:send'" class="writer-box" @click="openSend">
       <div class="writer">
         <Icon icon="material-symbols:edit-outline-sharp" width="22" height="22"/>
+        <span v-if="uiStore.win95" class="writer-label">{{ $t('newMail') }}</span>
       </div>
     </div>
     <div class="toolbar">

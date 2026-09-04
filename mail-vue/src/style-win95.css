@@ -316,17 +316,28 @@ html.win95 .el-aside .el-menu-item.is-active {
     color: #ffffff !important;
 }
 html.win95 .el-header {
+    --el-header-height: 40px;
     background: #c0c0c0;
     border-bottom: 1px solid #0a0a0a;
     box-shadow: inset 0 -2px 0 #808080;
 }
-/* 撰写邮件按钮：圆形渐变 → 方形凸起 */
+/* 撰写邮件按钮：圆形渐变 → 方形凸起工具栏按钮（带"新邮件"文字） */
 html.win95 .writer-box .writer {
     background: #c0c0c0;
     color: #000000;
     border-radius: 0 !important;
+    width: auto;
+    height: 26px;
+    padding: 0 10px;
+    gap: 5px;
     box-shadow: inset -1px -1px #0a0a0a, inset 1px 1px #ffffff, inset -2px -2px #808080, inset 2px 2px #dfdfdf;
 }
+html.win95 .writer-box .writer svg { width: 14px; height: 14px; }
+html.win95 .writer-box .writer .writer-label {
+    font-size: 12px;
+    white-space: nowrap;
+}
+html.win95 .breadcrumb-item { font-size: 12px; }
 /* 撰写窗口（自定义组件）：窗口凸起 + 深蓝标题栏 */
 html.win95 .send .write-box {
     background: #c0c0c0 !important;
@@ -366,3 +377,307 @@ html.win95 .user-details .details-avatar {
     border-radius: 0 !important;
     box-shadow: inset -1px -1px #808080, inset 1px 1px #ffffff;
 }
+
+/* ============================================================
+   桌面 + 可拖动窗口 + 任务栏 + 开始菜单（参考 design/win95-mail.html）
+   ============================================================ */
+html.win95 .w95-desktop {
+    position: fixed;
+    inset: 0 0 28px 0;
+    background: #008080;
+    overflow: hidden;
+    user-select: none;
+}
+
+/* ---- 桌面图标 ---- */
+html.win95 .w95-dicon {
+    position: absolute;
+    width: 74px;
+    text-align: center;
+    color: #ffffff;
+    padding: 2px;
+    cursor: default;
+}
+html.win95 .w95-dicon svg { margin: 0 auto; display: block; }
+html.win95 .w95-dicon span {
+    display: inline-block;
+    margin-top: 3px;
+    padding: 1px 3px;
+    font-size: 12px;
+    text-shadow: 1px 1px 0 #000000;
+    white-space: nowrap;
+}
+html.win95 .w95-dicon.sel span {
+    background: #000080;
+    outline: 1px dotted #ffff00;
+}
+
+/* ---- 窗口（可拖动 / 最小化 / 最大化） ---- */
+html.win95 .w95-window {
+    position: absolute;
+    display: flex;
+    flex-direction: column;
+    background: #c0c0c0;
+    padding: 3px;
+    z-index: 10;
+    box-shadow: inset -1px -1px #0a0a0a, inset 1px 1px #dfdfdf, inset -2px -2px #808080, inset 2px 2px #ffffff, 4px 4px 0 rgba(0, 0, 0, 0.25);
+}
+html.win95 .w95-window.maximized {
+    left: 0 !important;
+    top: 0 !important;
+    width: 100% !important;
+    height: 100% !important;
+    box-shadow: inset -1px -1px #0a0a0a, inset 1px 1px #dfdfdf, inset -2px -2px #808080, inset 2px 2px #ffffff;
+}
+html.win95 .w95-window.hidden { display: none; }
+
+/* ---- 标题栏 ---- */
+html.win95 .w95-titlebar {
+    flex: 0 0 auto;
+    height: 20px;
+    background: #000080;
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    padding: 0 2px 0 3px;
+    font-size: 12px;
+}
+html.win95 .w95-titlebar .ttext {
+    color: #ffffff;
+    font-weight: bold;
+    flex: 1;
+    overflow: hidden;
+    white-space: nowrap;
+    text-overflow: ellipsis;
+}
+html.win95 .w95-tbtns { display: flex; gap: 0; }
+html.win95 .w95-tbtn {
+    width: 16px;
+    height: 14px;
+    background: #c0c0c0;
+    border: none;
+    cursor: pointer;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    padding: 0;
+    box-shadow: inset -1px -1px #0a0a0a, inset 1px 1px #ffffff, inset -2px -2px #808080, inset 2px 2px #dfdfdf;
+}
+html.win95 .w95-tbtn:active {
+    box-shadow: inset -1px -1px #ffffff, inset 1px 1px #0a0a0a, inset -2px -2px #dfdfdf, inset 2px 2px #808080;
+}
+html.win95 .w95-tbtn:active svg { transform: translate(1px, 1px); }
+
+/* ---- 菜单栏 ---- */
+html.win95 .w95-menubar {
+    display: flex;
+    padding: 1px 0;
+    flex: 0 0 auto;
+    position: relative;
+    z-index: 2000;
+    font-size: 13px;
+}
+html.win95 .w95-menu-item {
+    position: relative;
+    padding: 3px 8px;
+    cursor: default;
+    white-space: nowrap;
+}
+html.win95 .w95-menu-item:hover,
+html.win95 .w95-menu-item.open {
+    background: #000080;
+    color: #ffffff;
+}
+html.win95 .w95-dropdown {
+    position: absolute;
+    top: 100%;
+    left: 0;
+    min-width: 160px;
+    background: #c0c0c0;
+    padding: 2px;
+    z-index: 2100;
+    color: #000000;
+    box-shadow: inset -1px -1px #0a0a0a, inset 1px 1px #dfdfdf, inset -2px -2px #808080, inset 2px 2px #ffffff, 3px 3px 0 rgba(0, 0, 0, 0.3);
+}
+html.win95 .w95-ditem {
+    padding: 4px 20px 4px 16px;
+    white-space: nowrap;
+    cursor: default;
+}
+html.win95 .w95-ditem:hover { background: #000080; color: #ffffff; }
+html.win95 .w95-ditem.disabled {
+    color: #808080;
+    text-shadow: 1px 1px 0 #ffffff;
+}
+html.win95 .w95-ditem.disabled:hover { background: transparent; color: #808080; }
+html.win95 .w95-dsep {
+    height: 0;
+    border-top: 1px solid #808080;
+    border-bottom: 1px solid #ffffff;
+    margin: 3px 2px;
+}
+
+/* ---- 内容区：撑满窗口剩余空间 ---- */
+html.win95 .w95-body {
+    flex: 1;
+    min-height: 0;
+    display: flex;
+    user-select: auto;
+}
+html.win95 .w95-body .layout {
+    position: relative;
+    inset: auto;
+    flex: 1;
+    min-height: 0;
+}
+html.win95 .main-container { overflow: hidden; }
+html.win95 .main-box-show,
+html.win95 .main-box-hide { height: calc(100% - 40px); }
+
+/* ---- 状态栏 ---- */
+html.win95 .w95-statusbar {
+    display: flex;
+    gap: 2px;
+    padding: 0 2px 1px;
+    flex: 0 0 auto;
+    font-size: 12px;
+}
+html.win95 .w95-sfield {
+    background: #c0c0c0;
+    padding: 3px 8px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    box-shadow: inset -1px -1px #ffffff, inset 1px 1px #808080;
+}
+html.win95 .w95-sfield.stretch { flex: 1; }
+/* ---- 任务栏（fixed 底部，盖在桌面留出的 28px 上） ---- */
+html.win95 .w95-taskbar {
+    position: fixed;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    height: 28px;
+    background: #c0c0c0;
+    z-index: 9000;
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    padding: 2px;
+    box-shadow: inset 0 1px #ffffff, inset 0 2px #dfdfdf;
+}
+/* 任务栏按钮基础：凸起 */
+html.win95 .w95-btn {
+    height: 22px;
+    background: #c0c0c0;
+    border: none;
+    color: #000000;
+    font-size: 12px;
+    cursor: pointer;
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    padding: 0 8px;
+    box-shadow: inset -1px -1px #0a0a0a, inset 1px 1px #ffffff, inset -2px -2px #808080, inset 2px 2px #dfdfdf;
+}
+html.win95 .w95-btn:active {
+    box-shadow: inset -1px -1px #ffffff, inset 1px 1px #0a0a0a, inset -2px -2px #dfdfdf, inset 2px 2px #808080;
+}
+html.win95 .w95-startbtn { font-weight: bold; padding: 0 8px 0 5px; }
+/* 按下/激活态：凹陷 + 4x4 网点 dither 背景 */
+html.win95 .w95-startbtn.on,
+html.win95 .w95-taskbtn.on {
+    box-shadow: inset -1px -1px #ffffff, inset 1px 1px #0a0a0a, inset -2px -2px #dfdfdf, inset 2px 2px #808080;
+    font-weight: bold;
+    background: #c0c0c0 url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='4' height='4'%3E%3Crect width='4' height='4' fill='%23fff'/%3E%3Crect width='2' height='2' fill='%23c0c0c0'/%3E%3Crect x='2' y='2' width='2' height='2' fill='%23c0c0c0'/%3E%3C/svg%3E");
+}
+html.win95 .w95-tasks {
+    flex: 1;
+    display: flex;
+    gap: 3px;
+    overflow: hidden;
+}
+html.win95 .w95-taskbtn {
+    max-width: 160px;
+    justify-content: flex-start;
+    overflow: hidden;
+    white-space: nowrap;
+}
+/* 托盘：凹陷框 */
+html.win95 .w95-tray {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 2px 8px;
+    box-shadow: inset -1px -1px #ffffff, inset 1px 1px #808080;
+}
+html.win95 .w95-tray svg { opacity: .8; }
+html.win95 .w95-clock { font-size: 12px; color: #000000; }
+
+/* ---- 开始菜单 ---- */
+html.win95 .w95-startmenu {
+    position: fixed;
+    left: 2px;
+    bottom: 30px;
+    width: 190px;
+    background: #c0c0c0;
+    z-index: 9500;
+    display: flex;
+    padding: 3px;
+    box-shadow: inset -1px -1px #0a0a0a, inset 1px 1px #dfdfdf, inset -2px -2px #808080, inset 2px 2px #ffffff;
+}
+html.win95 .w95-sm-side {
+    width: 24px;
+    background: #000080;
+    color: #c0c0c0;
+    writing-mode: vertical-rl;
+    transform: rotate(180deg);
+    font-weight: bold;
+    font-size: 15px;
+    text-align: right;
+    padding: 6px 3px;
+    letter-spacing: 1px;
+    flex: 0 0 auto;
+}
+html.win95 .w95-sm-side .w95-sm-95 { font-size: 17px; }
+html.win95 .w95-sm-items {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+}
+html.win95 .w95-sm-item {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 6px 10px;
+    white-space: nowrap;
+}
+html.win95 .w95-sm-item:hover { background: #000080; color: #ffffff; }
+html.win95 .w95-startmenu .w95-dsep { margin: 3px 4px; }
+
+/* ---- 关机画面（彩蛋） ---- */
+html.win95 .w95-shutdown {
+    position: fixed;
+    inset: 0;
+    background: #000000;
+    z-index: 99999;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: #ffa500;
+    font-size: 18px;
+    font-weight: bold;
+}
+
+/* ---- 邮件列表表格化（对齐设计稿四列：复选框/发件人/主题/日期） ---- */
+html.win95 .email-container .email-row {
+    box-shadow: none !important;
+    border-bottom: 1px solid #f2f2f2;
+}
+html.win95 .email-container .email-row:hover { background: #f0f0f8 !important; }
+html.win95 .email-container .email-row[data-checked="true"] { background: #c2dbff !important; }
+html.win95 .email-container .email-row .title {
+    grid-template-columns: 190px 1fr !important;
+}
+html.win95 .email-container .email-row .email-content { display: none; }
+html.win95 .email-container .email-row .unread { background: #0000dd !important; }
