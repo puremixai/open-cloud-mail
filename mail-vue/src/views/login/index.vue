@@ -1,6 +1,6 @@
 <template>
   <div id="login-box" :style=" background ? 'background: var(--el-bg-color)' : ''" v-loading="oauthLoading" element-loading-text="登录中...">
-    <div v-if="settingStore.settings.background" :style="background"></div>
+    <div v-if="settingStore.settings.background" class="background-layer" :style="background"></div>
     <MailLoader v-if="introShow" @done="introShow = false" />
     <div class="form-wrapper">
       <div class="container">
@@ -690,40 +690,39 @@ function submitRegister() {
 
 <style lang="scss" scoped>
 
-.form-wrapper {
+.background-layer {
   position: fixed;
-  right: 0;
+  inset: 0;
+  z-index: 0;
+}
+
+.form-wrapper {
+  position: relative;
+  width: 100%;
   height: 100%;
   z-index: 10;
   display: flex;
   align-items: center;
   justify-content: center;
-  @media (max-width: 767px) {
-    width: 100%;
-  }
 }
 
 .container {
   background: v-bind(loginOpacity);
-  padding-left: 40px;
-  padding-right: 40px;
+  padding: 30px 40px 25px;
   display: flex;
   flex-direction: column;
   justify-content: center;
   width: 450px;
-  height: 100%;
-  border-left: 1px solid var(--login-border);
+  height: fit-content;
+  border: 1px solid var(--login-border);
+  border-radius: 8px;
   box-shadow: var(--el-box-shadow-light);
   @media (max-width: 1024px) {
     padding: 20px 18px;
     width: 384px;
-    margin-left: 18px;
   }
   @media (max-width: 767px) {
-    border: 1px solid var(--login-border);
     padding: 20px 18px;
-    border-radius: 6px;
-    height: fit-content;
     width: 100%;
     margin-right: 18px;
     margin-left: 18px;
