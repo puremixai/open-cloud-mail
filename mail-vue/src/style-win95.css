@@ -214,6 +214,9 @@ html.win95 .el-select-dropdown__item { color: #000000; }
 html.win95 .el-select-dropdown__item.is-hovering,
 html.win95 .el-select-dropdown__item:hover { background: #000080; color: #ffffff; }
 html.win95 .el-select-dropdown__item.is-selected { color: #000080; font-weight: bold; }
+/* 选中项被悬停/高亮时：否则 is-selected 的深蓝文字落在 #000080 高亮底上，整块看不见 */
+html.win95 .el-select-dropdown__item.is-selected.is-hovering,
+html.win95 .el-select-dropdown__item.is-selected:hover { color: #ffffff; }
 
 /* ============ 对话框 / 抽屉：窗口凸起 + 深蓝标题栏 ============ */
 html.win95 .el-dialog,
@@ -470,10 +473,14 @@ html.win95 .w95-idcard-head {
 }
 html.win95 .w95-idcard-brand {
     font-weight: 900;
-    font-size: 15px;
+    font-size: 14px;
     letter-spacing: 0.5px;
     color: #13181d;
+    text-transform: uppercase;
     white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    min-width: 0;
 }
 html.win95 .w95-idcard-brand::before {
     content: "✉";

@@ -38,7 +38,7 @@
          :title="$t('win95IdcardCopyTip')">
       <span class="w95-idcard-close" @click.stop="idcardClosed = true">×</span>
       <div class="w95-idcard-head">
-        <span class="w95-idcard-brand">CLOUD MAIL</span>
+        <span class="w95-idcard-brand">{{ settingStore.settings.title || 'MAIL' }}</span>
         <span class="w95-idcard-tag">{{ $t('win95IdcardTag') }}</span>
       </div>
       <div class="w95-idcard-no">{{ userStore.user.userId }}</div>
