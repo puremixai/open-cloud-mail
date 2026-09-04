@@ -399,6 +399,26 @@ html.win95 .email-container .scroll {
 /* 头部圆形头像 / 图标底 → 方形 */
 html.win95 .toolbar .icon-item { border-radius: 0 !important; }
 html.win95 .toolbar .icon-item:hover { background: #dfdfdf; }
+
+/* ---- 列表表头：设计稿的灰色凸起列头（发件人 | 主题 | 日期） ---- */
+/* 表头插入后容器变为三行：工具条 / 表头 / 列表 */
+@media (min-width: 1367px) {
+    html.win95 .email-container { grid-template-rows: auto auto 1fr; }
+}
+html.win95 .w95-list-head {
+    display: flex;
+    align-items: center;
+    background: #c0c0c0;
+    padding: 3px 6px;
+    font-size: 12px;
+    font-weight: bold;
+    color: #000000;
+    box-shadow: inset -1px -1px #808080, inset 1px 1px #ffffff;
+}
+html.win95 .w95-list-head .h-cc { width: 40px; flex: 0 0 auto; }
+html.win95 .w95-list-head .h-sender { width: 216px; flex: 0 0 auto; }
+html.win95 .w95-list-head .h-subject { flex: 1; min-width: 0; overflow: hidden; }
+html.win95 .w95-list-head .h-date { width: 90px; flex: 0 0 auto; text-align: right; }
 html.win95 .avatar .avatar-text,
 html.win95 .user-details .details-avatar {
     background: #c0c0c0;
@@ -420,13 +440,33 @@ html.win95 .w95-desktop {
 }
 
 /* ---- 桌面图标 ---- */
-html.win95 .w95-dicon {
+/* 图标容器：flex 竖排，新增图标自动排列，不再手写坐标 */
+html.win95 .w95-dicons {
     position: absolute;
+    left: 8px;
+    top: 8px;
+    bottom: 40px;
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 10px;
+    overflow: hidden;
+}
+/* 「刷新」时的图标重绘效果 */
+html.win95 .w95-dicons.refreshing { visibility: hidden; }
+html.win95 .w95-dicon {
+    position: relative;
     width: 74px;
     text-align: center;
     color: #ffffff;
     padding: 2px;
     cursor: default;
+}
+/* 桌面右键菜单：复用下拉菜单样式，改为固定定位 */
+html.win95 .w95-desk-menu {
+    position: fixed;
+    z-index: 9600;
+    min-width: 140px;
 }
 html.win95 .w95-dicon svg { margin: 0 auto; display: block; }
 html.win95 .w95-dicon span {
@@ -494,7 +534,8 @@ html.win95 .w95-idcard-brand::before {
     margin-right: 8px;
     vertical-align: -4px;
 }
-/* 「用户身份卡」竖排，贴右缘垂直居中 */
+/* 「用户身份卡」竖排，贴右缘垂直居中；
+   margin-bottom 抵消 letter-spacing 在末字后的多余间距，否则视觉上不居中 */
 html.win95 .w95-idcard-tag {
     position: absolute;
     right: 9px;
@@ -505,6 +546,7 @@ html.win95 .w95-idcard-tag {
     font-size: 12px;
     font-weight: 800;
     letter-spacing: 5px;
+    margin-bottom: -5px;
     white-space: nowrap;
 }
 /* 邮箱为主字段，突出显示；ID 在其下 */

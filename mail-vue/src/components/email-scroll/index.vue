@@ -27,6 +27,14 @@
       </div>
     </div>
 
+    <!-- Win95 表头：对齐设计稿的灰色凸起列头（仅桌面紧凑模式） -->
+    <div class="w95-list-head" v-if="uiStore.win95 && !isMobile">
+      <span class="h-cc"></span>
+      <span class="h-sender">{{ $t('win95ColSender') }}</span>
+      <span class="h-subject">{{ $t('win95ColSubject') }}</span>
+      <span class="h-date">{{ $t('win95ColDate') }}</span>
+    </div>
+
     <div ref="scroll" class="scroll">
       <UseVirtualList ref="scrollbarRef"
                         @scroll="onScroll"

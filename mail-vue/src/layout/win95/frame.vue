@@ -1,8 +1,8 @@
 <template>
-  <div v-if="uiStore.win95" class="w95-desktop" @click="desktopClick">
-    <!-- 桌面图标（整齐竖排一列） -->
+  <div v-if="uiStore.win95" class="w95-desktop" @click="desktopClick" @contextmenu="onDesktopContextmenu">
+    <!-- 桌面图标（flex 竖排，新增图标自动排列） -->
+    <div class="w95-dicons" :class="{ refreshing: deskRefreshing }">
     <div class="w95-dicon" :class="{ sel: iconSel === 'mail' }"
-         style="left: 14px; top: 12px"
          @click.stop="iconSel = 'mail'" @dblclick.stop="iconSel = ''; openMail()">
       <svg width="32" height="32" viewBox="0 0 32 32">
         <rect x="3" y="7" width="26" height="18" fill="#fff" stroke="#000"/>
@@ -12,7 +12,6 @@
       <span>{{ $t('inbox') }}</span>
     </div>
     <div class="w95-dicon" :class="{ sel: iconSel === 'bin' }"
-         style="left: 14px; top: 96px"
          @click.stop="iconSel = 'bin'" @dblclick.stop="iconSel = ''; openBin()">
       <svg width="32" height="32" viewBox="0 0 32 32">
         <path d="M10 4h12l1 4H9z" fill="#dfdfdf" stroke="#000"/>
@@ -22,7 +21,6 @@
       <span>{{ $t('win95RecycleBin') }}</span>
     </div>
     <div class="w95-dicon" :class="{ sel: iconSel === 'site' }"
-         style="left: 14px; top: 180px"
          @click.stop="iconSel = 'site'" @dblclick.stop="iconSel = ''; openSite()">
       <svg width="32" height="32" viewBox="0 0 32 32">
         <circle cx="16" cy="16" r="12" fill="#1e6fd9" stroke="#000"/>
@@ -33,8 +31,29 @@
       <span>{{ $t('win95Homepage') }}</span>
     </div>
 
+    <div class="w95-dicon" :class="{ sel: iconSel === 'idcard' }"
+         @click.stop="iconSel = 'idcard'" @dblclick.stop="iconSel = ''; idcardClosed = false">
+      <svg width="32" height="32" viewBox="0 0 32 32">
+        <rect x="4" y="6" width="24" height="20" fill="#fff" stroke="#000"/>
+        <circle cx="11" cy="13" r="3" fill="#808080"/>
+        <path d="M17 11h8M17 15h8M8 20h16" stroke="#000" fill="none"/>
+      </svg>
+      <span>{{ $t('win95Idcard') }}</span>
+    </div>
+    </div>
+
+    <!-- 桌面右键菜单（排列图标 / 刷新 / 属性） -->
+    <div class="w95-dropdown w95-desk-menu" v-if="deskMenu.open"
+         :style="{ left: deskMenu.x + 'px', top: deskMenu.y + 'px' }">
+      <div class="w95-ditem" @click.stop="arrangeIcons">{{ $t('win95Arrange') }}</div>
+      <div class="w95-ditem" @click.stop="refreshDesktop">{{ $t('win95Refresh') }}</div>
+      <div class="w95-dsep"></div>
+      <div class="w95-ditem" @click.stop="closeDeskMenu(); showAbout()">{{ $t('win95Properties') }}</div>
+    </div>
+
     <!-- 用户身份卡（票据样式，默认显示；点击复制用户 ID，右上角 × 可关闭） -->
     <div class="w95-idcard" v-if="userStore.user && !idcardClosed" @click="copyUserId"
+         :style="idcardStyle" @mousedown="onIdcardDown"
          :title="$t('win95IdcardCopyTip')">
       <span class="w95-idcard-close" @click.stop="closeIdcard">×</span>
       <span class="w95-idcard-tag">{{ $t('win95IdcardTag') }}</span>
@@ -46,17 +65,6 @@
       <div class="w95-idcard-no">ID · {{ userStore.user.userId }}</div>
       <div class="w95-idcard-dash"></div>
       <div class="w95-idcard-foot">{{ $t('win95IdcardWish') }}</div>
-    </div>
-
-    <div class="w95-dicon" :class="{ sel: iconSel === 'idcard' }"
-         style="left: 14px; top: 264px"
-         @click.stop="iconSel = 'idcard'" @dblclick.stop="iconSel = ''; idcardClosed = false">
-      <svg width="32" height="32" viewBox="0 0 32 32">
-        <rect x="4" y="6" width="24" height="20" fill="#fff" stroke="#000"/>
-        <circle cx="11" cy="13" r="3" fill="#808080"/>
-        <path d="M17 11h8M17 15h8M8 20h16" stroke="#000" fill="none"/>
-      </svg>
-      <span>{{ $t('win95Idcard') }}</span>
     </div>
 
     <!-- 主窗口：可拖动 / 最小化 / 最大化 / 关闭 -->
@@ -253,11 +261,65 @@ const iconSel = ref('')
 const idcardClosed = ref(localStorage.getItem('w95-idcard-closed') === '1')
 
 function closeIdcard() {
+  if (idcardDragged) {
+    idcardDragged = false
+    return
+  }
   idcardClosed.value = true
   localStorage.setItem('w95-idcard-closed', '1')
 }
 
+/* ---- 身份卡拖动 + 位置记忆 ---- */
+const idcardPos = reactive({ x: null, y: null })
+let idcardDrag = null
+let idcardDragged = false
+
+const idcardStyle = computed(() => {
+  if (idcardPos.x === null) return null
+  return { left: idcardPos.x + 'px', top: idcardPos.y + 'px', right: 'auto' }
+})
+
+function initIdcardPos() {
+  try {
+    const saved = JSON.parse(localStorage.getItem('w95-idcard-pos') || 'null')
+    if (saved && Number.isFinite(saved.x) && Number.isFinite(saved.y)) {
+      idcardPos.x = saved.x
+      idcardPos.y = saved.y
+    }
+  } catch { /* 忽略坏数据 */ }
+}
+
+function onIdcardDown(e) {
+  if (e.button !== 0) return
+  const rect = e.currentTarget.getBoundingClientRect()
+  idcardDrag = { sx: e.clientX, sy: e.clientY, ox: rect.left, oy: rect.top, moved: false }
+}
+
+function onIdcardMove(e) {
+  if (!idcardDrag) return
+  const dx = e.clientX - idcardDrag.sx
+  const dy = e.clientY - idcardDrag.sy
+  if (!idcardDrag.moved && Math.abs(dx) + Math.abs(dy) < 4) return
+  idcardDrag.moved = true
+  idcardDragged = true
+  idcardPos.x = Math.max(4, Math.min(window.innerWidth - 324, idcardDrag.ox + dx))
+  idcardPos.y = Math.max(4, Math.min(window.innerHeight - 80, idcardDrag.oy + dy))
+}
+
+function onIdcardUp() {
+  if (idcardDrag && idcardDrag.moved) {
+    localStorage.setItem('w95-idcard-pos', JSON.stringify({ x: idcardPos.x, y: idcardPos.y }))
+    /* click 事件在 mouseup 之后触发，延后清除拖拽标记，避免误触发复制 */
+    setTimeout(() => { idcardDragged = false }, 0)
+  }
+  idcardDrag = null
+}
+
 function copyText(text, tipKey) {
+  if (idcardDragged) {
+    idcardDragged = false
+    return
+  }
   navigator.clipboard.writeText(String(text)).then(() => {
     ElMessage({ message: t(tipKey), type: 'success', plain: true })
   })
@@ -265,6 +327,34 @@ function copyText(text, tipKey) {
 
 function copyUserId() {
   copyText(userStore.user.userId, 'win95IdcardCopyTip')
+}
+
+/* ---- 桌面右键菜单 ---- */
+const deskMenu = reactive({ open: false, x: 0, y: 0 })
+const deskRefreshing = ref(false)
+
+function onDesktopContextmenu(e) {
+  /* 仅桌面空白处生效，窗口/身份卡内保留默认右键行为（如复制邮件文字） */
+  if (e.target.closest('.w95-window') || e.target.closest('.w95-idcard')) return
+  e.preventDefault()
+  deskMenu.x = Math.min(e.clientX, window.innerWidth - 160)
+  deskMenu.y = Math.min(e.clientY, window.innerHeight - 130)
+  deskMenu.open = true
+}
+
+function closeDeskMenu() {
+  deskMenu.open = false
+}
+
+function arrangeIcons() {
+  /* 图标本就 flex 自动排列，收起菜单即可 */
+  closeDeskMenu()
+}
+
+function refreshDesktop() {
+  closeDeskMenu()
+  deskRefreshing.value = true
+  setTimeout(() => { deskRefreshing.value = false }, 300)
 }
 /* 邮箱窗口已关闭（Win95 关闭应用语义：窗口与任务栏按钮消失，桌面/开始菜单可重开） */
 const winClosed = ref(false)
@@ -363,6 +453,7 @@ function taskClick() {
 
 function desktopClick() {
   iconSel.value = ''
+  closeDeskMenu()
 }
 
 function openBin() {
@@ -532,6 +623,7 @@ function tick() {
 function onDocClick() {
   openIndex.value = -1
   startOpen.value = false
+  deskMenu.open = false
 }
 
 function onKeydown(e) {
@@ -545,7 +637,10 @@ onMounted(() => {
   document.addEventListener('mousemove', onMove)
   document.addEventListener('mouseup', onUp)
   document.addEventListener('keydown', onKeydown)
+  document.addEventListener('mousemove', onIdcardMove)
+  document.addEventListener('mouseup', onIdcardUp)
   window.addEventListener('resize', handleResize)
+  initIdcardPos()
   initWindowSize()
   tick()
   clockTimer = setInterval(tick, 10000)
@@ -556,6 +651,8 @@ onBeforeUnmount(() => {
   document.removeEventListener('mousemove', onMove)
   document.removeEventListener('mouseup', onUp)
   document.removeEventListener('keydown', onKeydown)
+  document.removeEventListener('mousemove', onIdcardMove)
+  document.removeEventListener('mouseup', onIdcardUp)
   window.removeEventListener('resize', handleResize)
   if (resizeTimer) clearTimeout(resizeTimer)
   clearInterval(clockTimer)
