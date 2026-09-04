@@ -151,11 +151,7 @@ function loadBackground(next) {
 router.afterEach((to) => {
 
     clearTimeout(timer)
-    if (first) {
-        removeLoading()
-    } else {
-        NProgress.done();
-    }
+    NProgress.done();
 
     const uiStore = useUiStore()
     if (to.meta.menu) {
@@ -172,14 +168,5 @@ router.afterEach((to) => {
 
     first = false
 })
-
-function removeLoading() {
-    const doc = document.getElementById('loading-first');
-    if (!doc) {
-        return;
-    }
-
-    doc.remove()
-}
 
 export default router
