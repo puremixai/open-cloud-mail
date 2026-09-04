@@ -299,8 +299,26 @@ html.win95 .el-aside {
     box-shadow: inset -1px 0 0 #0a0a0a, inset -2px 0 0 #808080;
 }
 html.win95 .el-aside .title {
+    height: 20px;
+    margin: 3px;
+    max-width: none;
+    padding: 0 3px;
+    gap: 4px;
     background: #000080 !important;
     color: #ffffff;
+    font-size: 12px;
+    font-weight: bold;
+    justify-content: flex-start;
+}
+html.win95 .el-aside .title > div {
+    max-width: none;
+    flex: 1;
+    font-weight: bold;
+}
+html.win95 .el-aside .title svg {
+    width: 14px;
+    height: 14px;
+    flex-shrink: 0;
 }
 html.win95 .el-aside .manage-title { color: #404040; }
 html.win95 .el-aside .el-menu { background: #c0c0c0 !important; border-right: none !important; }

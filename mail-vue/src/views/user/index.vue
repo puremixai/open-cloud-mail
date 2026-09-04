@@ -412,6 +412,7 @@ const oauthPlatformMap = {
   google: { key: 'google', label: 'Google', icon: 'devicon:google', iconType: 'iconify' },
   github: { key: 'github', label: 'GitHub', icon: 'codicon:github-inverted', iconType: 'iconify' },
   linuxdo: { key: 'linuxdo', label: 'LinuxDo', icon: '/image/linuxdo.webp', iconType: 'image' },
+  xai: { key: 'xai', label: 'XAI', icon: 'mdi:robot-outline', iconType: 'iconify' },
 }
 function oauthPlatform(row) {
   if (row?.platform && oauthPlatformMap[row.platform]) {
