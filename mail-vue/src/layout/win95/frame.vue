@@ -1,8 +1,9 @@
 <template>
   <div v-if="uiStore.win95" class="w95-desktop" @click="desktopClick">
-    <!-- 桌面图标 -->
+    <!-- 桌面图标（整齐竖排一列） -->
     <div class="w95-dicon" :class="{ sel: iconSel === 'mail' }"
-         @click.stop="iconSel = 'mail'" @dblclick.stop="iconSel = ''; restore()">
+         style="left: 14px; top: 12px"
+         @click.stop="iconSel = 'mail'" @dblclick.stop="iconSel = ''; openMail()">
       <svg width="32" height="32" viewBox="0 0 32 32">
         <rect x="3" y="7" width="26" height="18" fill="#fff" stroke="#000"/>
         <path d="M3 7l13 9 13-9" fill="none" stroke="#000"/>
@@ -11,7 +12,7 @@
       <span>{{ $t('inbox') }}</span>
     </div>
     <div class="w95-dicon" :class="{ sel: iconSel === 'bin' }"
-         style="left: 14px; top: 86px"
+         style="left: 14px; top: 96px"
          @click.stop="iconSel = 'bin'" @dblclick.stop="iconSel = ''; openBin()">
       <svg width="32" height="32" viewBox="0 0 32 32">
         <path d="M10 4h12l1 4H9z" fill="#dfdfdf" stroke="#000"/>
@@ -20,9 +21,21 @@
       </svg>
       <span>{{ $t('win95RecycleBin') }}</span>
     </div>
+    <div class="w95-dicon" :class="{ sel: iconSel === 'site' }"
+         style="left: 14px; top: 180px"
+         @click.stop="iconSel = 'site'" @dblclick.stop="iconSel = ''; openSite()">
+      <svg width="32" height="32" viewBox="0 0 32 32">
+        <circle cx="16" cy="16" r="12" fill="#1e6fd9" stroke="#000"/>
+        <ellipse cx="16" cy="16" rx="12" ry="4.6" fill="none" stroke="#fff"/>
+        <path d="M16 4v24" stroke="#fff" fill="none"/>
+        <path d="M6.4 11c6 3.4 13.2 3.4 19.2 0M6.4 21c6-3.4 13.2-3.4 19.2 0" fill="none" stroke="#fff"/>
+      </svg>
+      <span>{{ $t('win95Homepage') }}</span>
+    </div>
 
-    <!-- 主窗口：可拖动 / 最小化 / 最大化 -->
+    <!-- 主窗口：可拖动 / 最小化 / 最大化 / 关闭 -->
     <div
+        v-show="!winClosed"
         ref="winRef"
         class="w95-window"
         :class="{ maximized, hidden: minimized }"
@@ -48,7 +61,7 @@
               <rect x="0.5" y="0.5" width="8" height="2" fill="#000"/>
             </svg>
           </button>
-          <button class="w95-tbtn" :title="$t('win95Exit')" @click.stop="closeWindow">
+          <button class="w95-tbtn" :title="$t('win95Close')" @click.stop="closeWin">
             <svg width="8" height="8" viewBox="0 0 8 8"><path d="M1 1l6 6M7 1L1 7" stroke="#000" stroke-width="1.4"/></svg>
           </button>
         </span>
@@ -94,6 +107,14 @@
     <div class="w95-startmenu" v-show="startOpen" @click.stop>
       <div class="w95-sm-side">Windows<span class="w95-sm-95">&nbsp;95</span></div>
       <div class="w95-sm-items">
+        <div class="w95-sm-item" @click.stop="startProfile">
+          <svg width="18" height="18" viewBox="0 0 16 16">
+            <circle cx="8" cy="4.4" r="2.9" fill="#ffd29c" stroke="#000"/>
+            <path d="M2.6 14.2c.5-3.4 2.5-4.9 5.4-4.9s4.9 1.5 5.4 4.9z" fill="#000080" stroke="#000"/>
+          </svg>
+          {{ $t('settings') }}
+        </div>
+        <div class="w95-dsep"></div>
         <div class="w95-sm-item" @click.stop="startMail">
           <svg width="18" height="18" viewBox="0 0 16 16">
             <rect x="1.5" y="3.5" width="13" height="9" fill="#fff" stroke="#000"/>
@@ -108,6 +129,17 @@
             <text x="8" y="11.5" text-anchor="middle" fill="#fff" font-size="9" font-weight="bold">?</text>
           </svg>
           {{ $t('about') }}
+        </div>
+        <div class="w95-dsep"></div>
+        <div class="w95-sm-item" @click.stop="startTheme">
+          <svg width="18" height="18" viewBox="0 0 16 16">
+            <rect x="1.5" y="1.8" width="13" height="9.4" fill="#c0c0c0" stroke="#000"/>
+            <path d="M3 3.4h10v6.2H3z" fill="#1e6fd9"/>
+            <path d="M3 3.4h5v6.2H3z" fill="#000080"/>
+            <rect x="5.8" y="12.8" width="4.4" height="1.2" fill="#808080"/>
+            <rect x="3.8" y="14" width="8.4" height="1.4" fill="#c0c0c0" stroke="#000"/>
+          </svg>
+          {{ $t('win95SwitchTheme') }}
         </div>
         <div class="w95-dsep"></div>
         <div class="w95-sm-item" @click.stop="startShutdown">
@@ -130,7 +162,7 @@
         {{ $t('win95Start') }}
       </button>
       <div class="w95-tasks">
-        <button class="w95-btn w95-taskbtn" :class="{ on: !minimized }" @click="taskClick">
+        <button v-if="!winClosed" class="w95-btn w95-taskbtn" :class="{ on: !minimized }" @click="taskClick">
           <svg width="14" height="14" viewBox="0 0 16 16">
             <rect x="1.5" y="3.5" width="13" height="9" fill="#fff" stroke="#000"/>
             <path d="M1.5 3.5L8 8.5l6.5-5" fill="none" stroke="#000"/>
@@ -189,6 +221,8 @@ const minimized = ref(false)
 const startOpen = ref(false)
 const shutdownScreen = ref(false)
 const iconSel = ref('')
+/* 邮箱窗口已关闭（Win95 关闭应用语义：窗口与任务栏按钮消失，桌面/开始菜单可重开） */
+const winClosed = ref(false)
 /* 因视口过小而自动最大化（视口恢复后自动还原，不干扰手动最大化） */
 const autoMaxed = ref(false)
 
@@ -263,8 +297,18 @@ function minimize() {
   minimized.value = true
 }
 
-function restore() {
+/* 打开（或恢复）邮箱窗口：桌面图标双击 / 开始菜单收件箱 */
+function openMail() {
+  winClosed.value = false
   minimized.value = false
+  startOpen.value = false
+}
+
+/* 标题栏右上角 ✕：关闭邮箱窗口（不退出 Win95 模式） */
+function closeWin() {
+  winClosed.value = true
+  minimized.value = false
+  openIndex.value = -1
   startOpen.value = false
 }
 
@@ -280,14 +324,44 @@ function openBin() {
   ElMessageBox.alert(t('win95BinEmpty'), t('win95RecycleBin'), { confirmButtonText: t('confirm') })
 }
 
+function openSite() {
+  ElMessage({
+    message: t('win95UnderConstruction'),
+    type: 'info',
+    plain: true,
+  })
+}
+
+function startProfile() {
+  startOpen.value = false
+  openMail()
+  router.push({ name: 'setting' })
+}
+
 function startMail() {
   startOpen.value = false
-  restore()
+  openMail()
 }
 
 function startAbout() {
   startOpen.value = false
   showAbout()
+}
+
+/* 切换主题：退出 Win95 复古模式，回到现代界面 */
+function startTheme() {
+  startOpen.value = false
+  ElMessageBox.confirm(t('win95ExitConfirm'), t('win95SwitchTheme'), {
+    confirmButtonText: t('confirm'),
+    cancelButtonText: t('cancel'),
+    type: 'warning',
+  }).then(() => {
+    uiStore.win95 = false
+    uiStore.dark = uiStore.prevDark
+    document.documentElement.setAttribute('class', uiStore.dark ? 'dark' : '')
+    document.getElementById('theme-color-meta')
+        ?.setAttribute('content', uiStore.dark ? '#000000' : '#F1F1F1')
+  }).catch(() => {})
 }
 
 function startShutdown() {
@@ -387,20 +461,6 @@ function runItem(item) {
   if (item.off) return
   openIndex.value = -1
   item.a?.()
-}
-
-function closeWindow() {
-  ElMessageBox.confirm(t('win95ExitConfirm'), t('win95Exit'), {
-    confirmButtonText: t('confirm'),
-    cancelButtonText: t('cancel'),
-    type: 'warning',
-  }).then(() => {
-    uiStore.win95 = false
-    uiStore.dark = uiStore.prevDark
-    document.documentElement.setAttribute('class', uiStore.dark ? 'dark' : '')
-    document.getElementById('theme-color-meta')
-        ?.setAttribute('content', uiStore.dark ? '#000000' : '#F1F1F1')
-  }).catch(() => {})
 }
 
 function showAbout() {

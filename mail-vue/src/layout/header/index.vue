@@ -11,12 +11,7 @@
       </div>
     </div>
     <div class="toolbar">
-      <template v-if="uiStore.win95">
-        <div class="win95-icon icon-item" :title="$t('win95Exit')" @click="exitWin95($event)">
-          <Icon icon="mdi:monitor-shimmer"/>
-        </div>
-      </template>
-      <template v-else>
+      <template v-if="!uiStore.win95">
         <div v-if="uiStore.dark" class="sun-icon icon-item" @click="openDark($event)">
           <Icon icon="mingcute:sun-fill"/>
         </div>
@@ -242,10 +237,6 @@ function openWin95(e) {
   transitionTheme(e, 'dark', (root) => switchWin95(root))
 }
 
-function exitWin95(e) {
-  transitionTheme(e, 'light', (root) => switchBackFromWin95(root))
-}
-
 function isMobilePointer() {
   return !window.matchMedia("(pointer: fine) and (hover: hover)").matches
 }
@@ -268,13 +259,6 @@ function switchWin95(root) {
   uiStore.win95 = true
   root.setAttribute('class', 'win95')
   setMetaColor('#c0c0c0')
-}
-
-function switchBackFromWin95(root) {
-  uiStore.win95 = false
-  uiStore.dark = uiStore.prevDark
-  root.setAttribute('class', uiStore.dark ? 'dark' : '')
-  setMetaColor(uiStore.dark ? (isMobilePointer() ? '#141414' : '#000000') : (isMobilePointer() ? '#FFFFFF' : '#F1F1F1'))
 }
 
 function openSend() {

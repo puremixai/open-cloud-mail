@@ -16,6 +16,12 @@
       const root = document.documentElement
       const metaTag = document.getElementById('theme-color-meta');
       const isMobile =  !window.matchMedia("(pointer: fine) and (hover: hover)").matches;
+      /* 一次性迁移：默认主题改为 Win95，此后由用户自主选择 */
+      if (!localStorage.getItem('win95-default-v1')) {
+        uiStore.win95 = true
+        localStorage.setItem('ui', JSON.stringify(uiStore))
+        localStorage.setItem('win95-default-v1', '1')
+      }
       if (uiStore.win95) {
         root.setAttribute('class', 'win95');
         metaTag.setAttribute('content', '#c0c0c0');
@@ -23,6 +29,10 @@
         root.setAttribute('class', uiStore.dark ? 'dark' : '');
         metaTag.setAttribute('content', uiStore.dark ? (isMobile ? '#141414' : '#000000') : (isMobile ? '#FFFFFF' : '#F1F1F1'));
       }
+    } else {
+      /* 新用户：默认 Win95 主题（与 ui store 默认值一致） */
+      document.documentElement.setAttribute('class', 'win95');
+      document.getElementById('theme-color-meta').setAttribute('content', '#c0c0c0');
     }
   </script>
 </head>

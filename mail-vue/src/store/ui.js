@@ -11,7 +11,8 @@ export const useUiStore = defineStore('ui', {
         previewData: {},
         key: 0,
         dark: false,
-        win95: false,
+        /* 默认主题：Win95 复古模式（老用户由 index.html 的一次性迁移脚本切换） */
+        win95: true,
         prevDark: false,
         asideCount: {
             email: 0,
