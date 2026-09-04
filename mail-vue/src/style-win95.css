@@ -448,7 +448,7 @@ html.win95 .w95-idcard {
     top: 56px;
     right: 28px;
     width: 320px;
-    padding: 18px 22px 14px;
+    padding: 16px 38px 12px 22px;
     background: linear-gradient(160deg, #ffffff 0%, #eaf2fd 100%);
     border-radius: 14px !important;
     box-shadow: 0 12px 32px rgba(0, 0, 0, 0.35);
@@ -458,7 +458,7 @@ html.win95 .w95-idcard {
 html.win95 .w95-idcard-close {
     position: absolute;
     top: 6px;
-    right: 12px;
+    right: 30px;
     color: #9aa3af;
     font-size: 16px;
     line-height: 1;
@@ -467,9 +467,7 @@ html.win95 .w95-idcard-close {
 html.win95 .w95-idcard-close:hover { color: #13181d; }
 html.win95 .w95-idcard-head {
     display: flex;
-    justify-content: space-between;
     align-items: center;
-    gap: 8px;
 }
 html.win95 .w95-idcard-brand {
     font-weight: 900;
@@ -496,30 +494,37 @@ html.win95 .w95-idcard-brand::before {
     margin-right: 8px;
     vertical-align: -4px;
 }
+/* 「用户身份卡」竖排，贴右缘垂直居中 */
 html.win95 .w95-idcard-tag {
+    position: absolute;
+    right: 9px;
+    top: 50%;
+    transform: translateY(-50%);
+    writing-mode: vertical-rl;
     color: #2f7cf6;
     font-size: 12px;
     font-weight: 800;
-    letter-spacing: 2px;
-    text-transform: uppercase;
+    letter-spacing: 5px;
     white-space: nowrap;
 }
-html.win95 .w95-idcard-no {
-    margin-top: 10px;
-    font-size: 30px;
+/* 邮箱为主字段，突出显示；ID 在其下 */
+html.win95 .w95-idcard-email {
+    margin-top: 12px;
+    font-size: 18px;
     font-weight: 900;
     color: #13181d;
-    letter-spacing: 1px;
-    line-height: 1.2;
-}
-html.win95 .w95-idcard-sub {
-    margin-top: 6px;
-    font-size: 13px;
-    color: #6b7280;
+    line-height: 1.25;
     word-break: break-all;
 }
+html.win95 .w95-idcard-no {
+    margin-top: 6px;
+    font-size: 13px;
+    font-weight: 700;
+    color: #6b7280;
+    letter-spacing: 1px;
+}
 html.win95 .w95-idcard-dash {
-    margin: 14px -22px 10px;
+    margin: 14px -38px 10px -22px;
     border-top: 2px dashed #d7dce6;
     position: relative;
 }

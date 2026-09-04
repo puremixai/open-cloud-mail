@@ -36,15 +36,27 @@
     <!-- 用户身份卡（票据样式，默认显示；点击复制用户 ID，右上角 × 可关闭） -->
     <div class="w95-idcard" v-if="userStore.user && !idcardClosed" @click="copyUserId"
          :title="$t('win95IdcardCopyTip')">
-      <span class="w95-idcard-close" @click.stop="idcardClosed = true">×</span>
+      <span class="w95-idcard-close" @click.stop="closeIdcard">×</span>
+      <span class="w95-idcard-tag">{{ $t('win95IdcardTag') }}</span>
       <div class="w95-idcard-head">
         <span class="w95-idcard-brand">{{ settingStore.settings.title || 'MAIL' }}</span>
-        <span class="w95-idcard-tag">{{ $t('win95IdcardTag') }}</span>
       </div>
-      <div class="w95-idcard-no">{{ userStore.user.userId }}</div>
-      <div class="w95-idcard-sub">{{ userStore.user.email }}</div>
+      <div class="w95-idcard-email" :title="$t('win95IdcardCopyEmailTip')"
+           @click.stop="copyText(userStore.user.email, 'win95IdcardCopyEmailTip')">{{ userStore.user.email }}</div>
+      <div class="w95-idcard-no">ID · {{ userStore.user.userId }}</div>
       <div class="w95-idcard-dash"></div>
-      <div class="w95-idcard-foot">{{ $t('win95IdcardAccount') }}：{{ userStore.user.account?.email || userStore.user.email }}</div>
+      <div class="w95-idcard-foot">{{ $t('win95IdcardWish') }}</div>
+    </div>
+
+    <div class="w95-dicon" :class="{ sel: iconSel === 'idcard' }"
+         style="left: 14px; top: 264px"
+         @click.stop="iconSel = 'idcard'" @dblclick.stop="iconSel = ''; idcardClosed = false">
+      <svg width="32" height="32" viewBox="0 0 32 32">
+        <rect x="4" y="6" width="24" height="20" fill="#fff" stroke="#000"/>
+        <circle cx="11" cy="13" r="3" fill="#808080"/>
+        <path d="M17 11h8M17 15h8M8 20h16" stroke="#000" fill="none"/>
+      </svg>
+      <span>{{ $t('win95Idcard') }}</span>
     </div>
 
     <!-- 主窗口：可拖动 / 最小化 / 最大化 / 关闭 -->
@@ -237,13 +249,22 @@ const minimized = ref(false)
 const startOpen = ref(false)
 const shutdownScreen = ref(false)
 const iconSel = ref('')
-/* 用户身份卡关闭状态（仅当前页面生命周期，刷新后默认重新显示） */
-const idcardClosed = ref(false)
+/* 用户身份卡关闭状态（持久化；桌面「身份卡」图标双击可重新打开） */
+const idcardClosed = ref(localStorage.getItem('w95-idcard-closed') === '1')
+
+function closeIdcard() {
+  idcardClosed.value = true
+  localStorage.setItem('w95-idcard-closed', '1')
+}
+
+function copyText(text, tipKey) {
+  navigator.clipboard.writeText(String(text)).then(() => {
+    ElMessage({ message: t(tipKey), type: 'success', plain: true })
+  })
+}
 
 function copyUserId() {
-  navigator.clipboard.writeText(String(userStore.user.userId)).then(() => {
-    ElMessage({ message: t('win95IdcardCopyTip'), type: 'success', plain: true })
-  })
+  copyText(userStore.user.userId, 'win95IdcardCopyTip')
 }
 /* 邮箱窗口已关闭（Win95 关闭应用语义：窗口与任务栏按钮消失，桌面/开始菜单可重开） */
 const winClosed = ref(false)
