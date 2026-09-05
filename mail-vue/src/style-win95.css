@@ -47,6 +47,7 @@ html.win95 {
     --el-box-shadow-light: 2px 2px 0 rgba(0, 0, 0, 0.35);
 
     /* ---- 应用自有变量覆盖 ---- */
+    --w95-desktop: #008080;
     --aside-backgound: #c0c0c0;
     --email-hover-background: #dfdfdf;
     --email-right-click-background: #dfdfdf;
@@ -485,32 +486,83 @@ html.win95 .w95-dicon.sel span {
     outline: 1px dotted #ffff00;
 }
 
-/* ---- 用户身份卡（票据样式，默认显示在桌面右上，点击复制用户 ID） ---- */
+/* ---- 用户身份卡（双面卡：正面票据 / 背面银行卡，⇄ 翻转切换；可拖拽） ---- */
 html.win95 .w95-idcard {
     position: absolute;
     top: 56px;
     right: 28px;
-    width: 320px;
-    padding: 16px 22px 12px;
-    background: linear-gradient(160deg, #ffffff 0%, #eaf2fd 100%);
-    border-radius: 14px !important;
-    box-shadow: 0 12px 32px rgba(0, 0, 0, 0.35);
-    cursor: pointer;
-    overflow: hidden;
+    width: 340px;
+    perspective: 1000px;
+    animation: w95IdcardIn 0.45s ease-out;
 }
-html.win95 .w95-idcard-close {
+@keyframes w95IdcardIn {
+    from { opacity: 0; transform: translateY(-12px); }
+}
+html.win95 .w95-idcard:active { cursor: grabbing; }
+
+/* 翻转容器：--ry 记录正反面角度，--press 做按压缩放反馈 */
+html.win95 .w95-idcard-flip {
+    position: relative;
+    width: 340px;
+    height: 214px;
+    transform-style: preserve-3d;
+    transform: rotateY(var(--ry, 0deg)) scale(var(--press, 1));
+    transition: transform 0.55s cubic-bezier(0.3, 0.7, 0.25, 1);
+}
+html.win95 .w95-idcard-flip.bank { --ry: 180deg; }
+html.win95 .w95-idcard:active .w95-idcard-flip { --press: 0.98; }
+
+html.win95 .w95-idcard-face {
+    position: absolute;
+    inset: 0;
+    backface-visibility: hidden;
+    -webkit-backface-visibility: hidden;
+    border-radius: 16px !important;
+    overflow: hidden;
+    box-shadow: 0 12px 32px rgba(0, 0, 0, 0.35);
+    transition: box-shadow 0.2s ease;
+}
+html.win95 .w95-idcard:active .w95-idcard-face { box-shadow: 0 5px 14px rgba(0, 0, 0, 0.4); }
+html.win95 .w95-idcard-face.w95-idcard-back { transform: rotateY(180deg); }
+
+/* 卡角按钮：换式 / 关闭（跟随后面配色） */
+html.win95 .w95-idcard-close,
+html.win95 .w95-idcard-style {
     position: absolute;
     top: 6px;
-    right: 12px;
+    z-index: 6;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 18px;
+    height: 18px;
+    padding: 0;
+    background: transparent;
+    border: none;
     color: #9aa3af;
-    font-size: 16px;
-    line-height: 1;
-    padding: 2px;
+    cursor: pointer;
 }
-html.win95 .w95-idcard-close:hover { color: #13181d; }
+html.win95 .w95-idcard-close { right: 10px; }
+html.win95 .w95-idcard-style { right: 30px; }
+html.win95 .w95-idcard-close:hover,
+html.win95 .w95-idcard-style:hover { color: #13181d; }
+html.win95 .w95-idcard.bank .w95-idcard-close,
+html.win95 .w95-idcard.bank .w95-idcard-style { color: rgba(255, 255, 255, 0.75); }
+html.win95 .w95-idcard.bank .w95-idcard-close:hover,
+html.win95 .w95-idcard.bank .w95-idcard-style:hover { color: #ffffff; }
+
+/* ---- 正面：票据（固定 340×214，与背面同尺寸） ---- */
+html.win95 .w95-idcard-face.w95-idcard-front {
+    display: flex;
+    flex-direction: column;
+    padding: 14px 20px 10px;
+    background: linear-gradient(160deg, #ffffff 0%, #eaf2fd 100%);
+}
 html.win95 .w95-idcard-head {
     display: flex;
     align-items: center;
+    justify-content: space-between;
+    gap: 10px;
 }
 html.win95 .w95-idcard-brand {
     font-weight: 900;
@@ -537,28 +589,49 @@ html.win95 .w95-idcard-brand::before {
     margin-right: 8px;
     vertical-align: -4px;
 }
-/* 邮箱为主字段，突出显示；ID 在其下 */
+/* 姓名首字圆章，平衡首行右侧留白（右侧让位给 ⇄/× 两个卡角按钮） */
+html.win95 .w95-idcard-mono {
+    flex: none;
+    width: 26px;
+    height: 26px;
+    margin-right: 34px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    background: #13181d;
+    color: #ffffff;
+    font-size: 13px;
+    font-weight: 800;
+    border-radius: 50% !important;
+}
+/* 邮箱为主字段，单行省略，悬停可见全名 */
 html.win95 .w95-idcard-email {
-    margin-top: 12px;
-    font-size: 18px;
+    margin-top: 14px;
+    font-size: 17px;
     font-weight: 900;
     color: #13181d;
     line-height: 1.25;
-    word-break: break-all;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    cursor: pointer;
 }
+html.win95 .w95-idcard-email:hover { text-decoration: underline; }
+/* 票号用等宽字体强化票据感 */
 html.win95 .w95-idcard-no {
     margin-top: 6px;
-    font-size: 13px;
+    font-family: "Courier New", monospace;
+    font-size: 12.5px;
     font-weight: 700;
     color: #6b7280;
-    letter-spacing: 1px;
+    letter-spacing: 1.5px;
 }
+/* 撕票口 + 打孔（孔色跟随桌面底色变量，避免硬编码穿帮） */
 html.win95 .w95-idcard-dash {
-    margin: 14px -22px 10px;
+    margin: auto -20px 10px;
     border-top: 2px dashed #d7dce6;
     position: relative;
 }
-/* 虚线两端的打孔半圆（填充桌面青色，与背景融合形成撕票效果） */
 html.win95 .w95-idcard-dash::before,
 html.win95 .w95-idcard-dash::after {
     content: "";
@@ -566,46 +639,24 @@ html.win95 .w95-idcard-dash::after {
     top: -10px;
     width: 20px;
     height: 20px;
-    background: #008080;
+    background: var(--w95-desktop, #008080);
     border-radius: 50% !important;
 }
 html.win95 .w95-idcard-dash::before { left: -9px; }
 html.win95 .w95-idcard-dash::after { right: -9px; }
 html.win95 .w95-idcard-foot {
     text-align: center;
-    font-size: 13px;
-    color: #4b5563;
-    word-break: break-all;
-}
-/* 样式切换按钮（⇄），在关闭按钮左侧 */
-html.win95 .w95-idcard-style {
-    position: absolute;
-    top: 5px;
-    right: 30px;
-    color: #9aa3af;
-    font-size: 14px;
-    line-height: 1;
-    padding: 3px;
-    cursor: pointer;
-    z-index: 4;
-}
-html.win95 .w95-idcard-style:hover { color: #13181d; }
-
-/* ---- 身份卡 · 银行卡样式（参考实体借记卡版面） ---- */
-html.win95 .w95-idcard.bank {
-    width: 340px;
-    height: 214px;
-    padding: 0;
+    font-size: 11.5px;
+    color: #8a93a3;
+    white-space: nowrap;
     overflow: hidden;
-    background: linear-gradient(135deg, #0d5c66 0%, #14808c 55%, #0f6a75 100%);
-    border-radius: 16px !important;
-    box-shadow: 0 16px 36px rgba(0, 0, 0, 0.45);
+    text-overflow: ellipsis;
 }
-html.win95 .w95-idcard.bank:active { cursor: grabbing; }
-html.win95 .w95-idcard.bank .w95-idcard-close { color: rgba(255, 255, 255, 0.75); z-index: 4; }
-html.win95 .w95-idcard.bank .w95-idcard-close:hover { color: #ffffff; }
-html.win95 .w95-idcard.bank .w95-idcard-style { color: rgba(255, 255, 255, 0.75); }
-html.win95 .w95-idcard.bank .w95-idcard-style:hover { color: #ffffff; }
+
+/* ---- 背面：银行卡（参考实体借记卡版面） ---- */
+html.win95 .w95-idcard-face.w95-idcard-back {
+    background: linear-gradient(135deg, #0d5c66 0%, #14808c 55%, #0f6a75 100%);
+}
 html.win95 .w95-bank-svg {
     position: absolute;
     inset: 0;
@@ -617,7 +668,7 @@ html.win95 .w95-bank-svg {
 html.win95 .w95-bank-brand {
     position: absolute;
     top: 14px;
-    right: 44px;
+    right: 56px;
     z-index: 2;
     display: flex;
     align-items: center;
@@ -631,6 +682,7 @@ html.win95 .w95-bank-brand {
     overflow: hidden;
 }
 html.win95 .w95-bank-brand svg { flex: none; }
+/* tier 显示角色名（院系/身份），更有个体信息量 */
 html.win95 .w95-bank-tier {
     position: absolute;
     top: 82px;
@@ -643,6 +695,22 @@ html.win95 .w95-bank-tier {
     max-width: 160px;
     white-space: nowrap;
     overflow: hidden;
+    text-transform: uppercase;
+}
+/* 全息防伪小贴片 */
+html.win95 .w95-bank-holo {
+    position: absolute;
+    top: 44px;
+    right: 20px;
+    z-index: 2;
+    width: 30px;
+    height: 22px;
+    background: linear-gradient(120deg, rgba(255, 255, 255, 0) 0%, rgba(255, 255, 255, 0.55) 25%, rgba(160, 220, 255, 0.5) 50%, rgba(255, 190, 230, 0.45) 75%, rgba(255, 255, 255, 0.1) 100%);
+    border-radius: 3px !important;
+    transform: rotate(-8deg);
+    opacity: 0.55;
+    mix-blend-mode: screen;
+    pointer-events: none;
 }
 html.win95 .w95-bank-wave {
     position: absolute;
@@ -653,18 +721,49 @@ html.win95 .w95-bank-wave {
 html.win95 .w95-bank-num {
     position: absolute;
     left: 22px;
-    bottom: 46px;
+    bottom: 54px;
     z-index: 2;
     color: #ffffff;
-    font-size: 22px;
+    font-size: 19px;
     font-weight: 800;
-    letter-spacing: 3px;
-    text-shadow: 0 1px 2px rgba(0, 0, 0, 0.3);
+    letter-spacing: 2.5px;
+    white-space: nowrap;
+    text-shadow: 0 -1px 0 rgba(0, 0, 0, 0.45), 0 1px 0 rgba(255, 255, 255, 0.28);
+}
+/* 持卡人 + 有效期 */
+html.win95 .w95-bank-meta {
+    position: absolute;
+    left: 22px;
+    right: 110px;
+    bottom: 28px;
+    z-index: 2;
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: 12px;
+}
+html.win95 .w95-bank-name {
+    min-width: 0;
+    color: rgba(255, 255, 255, 0.92);
+    font-size: 12.5px;
+    font-weight: 700;
+    letter-spacing: 1.5px;
+    text-transform: uppercase;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+html.win95 .w95-bank-valid {
+    flex: none;
+    color: rgba(255, 255, 255, 0.65);
+    font-family: "Courier New", monospace;
+    font-size: 10px;
+    letter-spacing: 1px;
 }
 html.win95 .w95-bank-email {
     position: absolute;
     left: 22px;
-    bottom: 18px;
+    bottom: 8px;
     right: 104px;
     z-index: 2;
     color: rgba(255, 255, 255, 0.8);
@@ -695,6 +794,11 @@ html.win95 .w95-bank-circles i {
 }
 html.win95 .w95-bank-circles i:first-child { left: 0; background: #eb001b; }
 html.win95 .w95-bank-circles i:last-child { right: 0; background: #f79e1b; mix-blend-mode: screen; }
+
+@media (prefers-reduced-motion: reduce) {
+    html.win95 .w95-idcard { animation: none; }
+    html.win95 .w95-idcard-flip { transition: none; }
+}
 
 
 /* ---- 窗口（可拖动 / 最小化 / 最大化） ---- */
