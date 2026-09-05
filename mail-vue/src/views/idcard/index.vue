@@ -227,7 +227,8 @@ defineOptions({
 const school = computed(() => settingStore.settings.title || t('idcardSchool'))
 const name = computed(() => userStore.user.name || '—')
 const email = computed(() => userStore.user.email || '—')
-const dept = computed(() => userStore.user.role?.name || '—')
+/* 院系为固定展示文案，不读取用户角色 */
+const dept = computed(() => t('idcardDeptValue'))
 
 /* 校名横带：长名称自动缩小字号与字距，避免省略号 */
 const bandStyle = computed(() => {
@@ -591,7 +592,8 @@ function printCard() {
     repeating-linear-gradient(48deg, rgba(70, 58, 32, 0.026) 0 1px, transparent 1px 7px),
     linear-gradient(160deg, #fdfbf3 0%, #f5efdc 58%, #eee5cb 100%);
   color: #2b2a26;
-  font-family: 'STZhongsong', 'SimSun', 'FangSong', Georgia, serif;
+  /* Georgia 在前：拉丁与数字用旧式数字（与小写等高和谐），中文回落宋体，避免数字偏大 */
+  font-family: Georgia, 'STZhongsong', 'SimSun', 'FangSong', serif;
 
   &.sid-back {
     transform: rotateY(180deg);

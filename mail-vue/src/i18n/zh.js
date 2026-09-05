@@ -293,6 +293,7 @@ const zh = {
     idcardFieldName: '姓名',
     idcardFieldNo: '学号',
     idcardFieldDept: '院系',
+    idcardDeptValue: '计算机科学',
     idcardFieldEmail: '校园邮箱',
     idcardFieldEnroll: '入学日期',
     idcardFieldExpiry: '有效期至',

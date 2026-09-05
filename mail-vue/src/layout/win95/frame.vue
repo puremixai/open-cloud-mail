@@ -126,7 +126,7 @@
             </svg>
             <span>{{ settingStore.settings.title || 'MAIL' }}</span>
           </div>
-          <div class="w95-bank-tier">{{ userStore.user.role?.name || $t('win95Idcard') }}</div>
+          <div class="w95-bank-tier">{{ $t('idcardDeptValue') }}</div>
           <span class="w95-bank-holo" aria-hidden="true"></span>
           <svg class="w95-bank-wave" width="26" height="26" viewBox="0 0 16 16" aria-hidden="true">
             <path d="M5 3a7.5 7.5 0 0 1 0 10M8 4.5a5.5 5.5 0 0 1 0 7M11 6a3.5 3.5 0 0 1 0 4" fill="none" stroke="#fff" stroke-width="1.4" stroke-linecap="round" opacity=".9"/>

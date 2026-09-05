@@ -293,6 +293,7 @@ const en = {
     idcardFieldName: 'Name',
     idcardFieldNo: 'Student No.',
     idcardFieldDept: 'Faculty',
+    idcardDeptValue: 'Computer Science',
     idcardFieldEmail: 'Campus Email',
     idcardFieldEnroll: 'Enrolled',
     idcardFieldExpiry: 'Valid Until',
