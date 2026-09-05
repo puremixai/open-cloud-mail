@@ -51,7 +51,7 @@
                   <circle cx="9" cy="32" r="1.8" fill="#e8c98e"/>
                   <circle cx="32" cy="55" r="1.8" fill="#e8c98e"/>
                 </svg>
-                <span class="sid-band-school">{{ school }}</span>
+                <span class="sid-band-school" :style="bandStyle">{{ school }}</span>
                 <span class="sid-band-en">{{ $t('idcardEnglish') }}</span>
               </div>
 
@@ -61,17 +61,15 @@
               <!-- 照片 + 信息栏 -->
               <div class="sid-main">
                 <div class="sid-photo">
-                  <svg viewBox="0 0 90 120" preserveAspectRatio="xMidYMid slice" aria-hidden="true">
+                  <svg viewBox="0 0 18 24" shape-rendering="crispEdges" aria-hidden="true">
                     <defs>
                       <linearGradient id="sidPhotoBg" x1="0" y1="0" x2="0" y2="1">
-                        <stop offset="0" stop-color="#5a83c8"/>
-                        <stop offset="1" stop-color="#33538f"/>
+                        <stop offset="0" :stop-color="avatar.bg[0]"/>
+                        <stop offset="1" :stop-color="avatar.bg[1]"/>
                       </linearGradient>
                     </defs>
-                    <rect width="90" height="120" fill="url(#sidPhotoBg)"/>
-                    <circle cx="45" cy="44" r="19" fill="#24406f"/>
-                    <path d="M8 120c1.5-27 17-37 37-37s35.5 10 37 37z" fill="#24406f"/>
-                    <rect x="1.5" y="1.5" width="87" height="117" fill="none" stroke="rgba(255,255,255,.85)" stroke-width="3"/>
+                    <rect width="18" height="24" fill="url(#sidPhotoBg)"/>
+                    <rect v-for="(p, i) in avatar.cells" :key="i" :x="p.x" :y="p.y" :width="p.w" :height="p.h" :fill="p.fill"/>
                   </svg>
                 </div>
                 <div class="sid-rows">
@@ -107,12 +105,12 @@
                 <span class="sid-motto">{{ $t('idcardMotto') }}</span>
               </div>
 
-              <!-- 红色钢印 -->
+              <!-- 红色钢印（弧线跨 240°，文字沿传统公章走向环绕） -->
               <svg class="sid-seal" viewBox="0 0 120 120" aria-hidden="true">
                 <circle cx="60" cy="60" r="56" fill="none" stroke="#c0392b" stroke-width="4"/>
                 <circle cx="60" cy="60" r="45" fill="none" stroke="#c0392b" stroke-width="1.5"/>
-                <path id="sidSealArc" d="M23,60 A37,37 0 0,1 97,60" fill="none"/>
-                <text fill="#c0392b" font-size="13" font-weight="700" letter-spacing="2">
+                <path id="sidSealArc" d="M25.4,80 A40,40 0 1,1 94.6,80" fill="none"/>
+                <text fill="#c0392b" :font-size="sealFont" font-weight="700" letter-spacing="1.2">
                   <textPath href="#sidSealArc" startOffset="50%" text-anchor="middle">{{ school }}</textPath>
                 </text>
                 <path d="M60 44.5 L63.7 55.7 75.5 55.7 66 62.6 69.6 73.8 60 66.9 50.4 73.8 54 62.6 44.5 55.7 56.3 55.7 Z" fill="#c0392b"/>
@@ -231,6 +229,25 @@ const name = computed(() => userStore.user.name || '—')
 const email = computed(() => userStore.user.email || '—')
 const dept = computed(() => userStore.user.role?.name || '—')
 
+/* 校名横带：长名称自动缩小字号与字距，避免省略号 */
+const bandStyle = computed(() => {
+  const len = (school.value || '').length
+  if (len > 16) return { fontSize: '14px', letterSpacing: '1px' }
+  if (len > 11) return { fontSize: '16px', letterSpacing: '2px' }
+  return {}
+})
+
+/* 钢印弧线文字：按名称长度自适应字号（中文按 1 字宽、拉丁按 0.58 估算，弧长约 167） */
+const sealFont = computed(() => {
+  const text = school.value || ''
+  let units = 0
+  for (const ch of text) {
+    units += /[\u3400-\u4dbf\u4e00-\u9fff\uf900-\ufaff\uff00-\uffef]/.test(ch) ? 1 : 0.58
+  }
+  if (!units) return 12.5
+  return Math.max(6.5, Math.min(12.5, (158 - 1.2 * text.length) / units))
+})
+
 /* 学号：用户 ID 补齐 8 位，仅作展示 */
 const no = computed(() => String(userStore.user.userId ?? '').padStart(8, '0'))
 
@@ -281,6 +298,115 @@ const bars = computed(() => {
   }
   return { list, w: x }
 })
+
+/* ---- 证件照：按姓名确定性生成像素头像（同名同脸，仅装饰） ---- */
+const AVATAR_SKINS = [['#f6d7b8', '#e0ac7e'], ['#eec39a', '#c68955'], ['#e0ac7e', '#a86b3c'], ['#c68955', '#8d5524'], ['#a86b3c', '#6e4226'], ['#8d5524', '#5a341a']]
+const AVATAR_HAIRS = ['#1f1f1f', '#3a2a1a', '#5a3a1a', '#8a5a2a', '#b8860b', '#2c2c54', '#4a4a4a', '#7a3b2a']
+const AVATAR_SHIRTS = ['#33538f', '#3a6ea5', '#6b4f9e', '#2e6e4e', '#8f2b23', '#4a4a55', '#b23a2a', '#1f6f6f']
+const AVATAR_BGS = [['#5a83c8', '#33538f'], ['#4a74b8', '#2c4f8a'], ['#7ba7dd', '#4a6fa8']]
+
+function avatarSeed(str) {
+  let h = 2166136261
+  for (const ch of str) {
+    h ^= ch.codePointAt(0)
+    h = Math.imul(h, 16777619)
+  }
+  return h >>> 0
+}
+
+function avatarRandom(a) {
+  return function () {
+    a |= 0
+    a = (a + 0x6d2b79f5) | 0
+    let t = Math.imul(a ^ (a >>> 15), 1 | a)
+    t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t
+    return ((t ^ (t >>> 14)) >>> 0) / 4294967296
+  }
+}
+
+/* 18×24 像素画布：肤色/发型/发色/上衣/背景/眼镜由姓名哈希决定 */
+function buildAvatar(name) {
+  const rng = avatarRandom(avatarSeed(name))
+  const pick = (list) => list[Math.floor(rng() * list.length)]
+  const [skin, skinDark] = pick(AVATAR_SKINS)
+  const hair = pick(AVATAR_HAIRS)
+  const shirt = pick(AVATAR_SHIRTS)
+  const bg = pick(AVATAR_BGS)
+  const hairStyle = Math.floor(rng() * 7)
+  const glasses = rng() < 0.22
+  const cells = []
+  const put = (x, y, w, h, fill) => cells.push({ x, y, w, h, fill })
+
+  /* 衣服与领口 */
+  put(3, 19, 12, 1, shirt)
+  put(1, 20, 16, 4, shirt)
+  put(7, 19, 4, 1, skinDark)
+
+  /* 脖子（含下巴投影）与头部 */
+  put(7, 16, 4, 1, skinDark)
+  put(7, 17, 4, 2, skin)
+  put(6, 6, 6, 1, skin)
+  put(5, 7, 8, 8, skin)
+  put(6, 15, 6, 1, skinDark)
+  put(4, 10, 1, 2, skin)
+  put(13, 10, 1, 2, skin)
+
+  /* 五官 */
+  put(7, 10, 1, 2, '#262626')
+  put(10, 10, 1, 2, '#262626')
+  put(8, 13, 2, 1, skinDark)
+  if (glasses) {
+    const f = '#1a1a1a'
+    put(6, 9, 3, 1, f)
+    put(6, 11, 3, 1, f)
+    put(6, 10, 1, 1, f)
+    put(8, 10, 1, 1, f)
+    put(9, 9, 3, 1, f)
+    put(9, 11, 3, 1, f)
+    put(11, 10, 1, 1, f)
+  }
+
+  /* 发型：寸头/短发/侧分/刺猬/齐刘海/卷发/长发 */
+  if (hairStyle === 0) {
+    put(6, 6, 6, 2, hair)
+    put(5, 8, 1, 1, hair)
+    put(12, 8, 1, 1, hair)
+  } else if (hairStyle === 1) {
+    put(6, 4, 6, 2, hair)
+    put(5, 6, 8, 2, hair)
+    put(5, 8, 1, 2, hair)
+    put(12, 8, 1, 2, hair)
+  } else if (hairStyle === 2) {
+    put(6, 4, 7, 2, hair)
+    put(5, 6, 7, 1, hair)
+    put(12, 7, 1, 3, hair)
+    put(5, 8, 1, 2, hair)
+  } else if (hairStyle === 3) {
+    put(6, 3, 1, 1, hair)
+    put(9, 3, 1, 1, hair)
+    put(11, 3, 1, 1, hair)
+    put(5, 4, 8, 2, hair)
+    put(5, 6, 8, 1, hair)
+    put(5, 7, 1, 2, hair)
+    put(12, 7, 1, 2, hair)
+  } else if (hairStyle === 4) {
+    put(6, 4, 6, 2, hair)
+    put(5, 6, 8, 2, hair)
+    put(5, 8, 4, 1, hair)
+  } else if (hairStyle === 5) {
+    put(5, 3, 8, 3, hair)
+    put(4, 6, 10, 3, hair)
+  } else {
+    put(6, 4, 6, 2, hair)
+    put(5, 6, 8, 2, hair)
+    put(4, 8, 2, 7, hair)
+    put(12, 8, 2, 7, hair)
+  }
+
+  return { cells, bg }
+}
+
+const avatar = computed(() => buildAvatar(name.value === '—' ? '' : name.value))
 
 /* 翻面 + 鼠标微倾斜 */
 const flipped = ref(false)
