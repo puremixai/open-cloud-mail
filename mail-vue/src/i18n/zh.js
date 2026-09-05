@@ -1,6 +1,7 @@
 const zh = {
     mailSelectionRequired: '请从邮件列表选择一封邮件。',
     mailLoadFailed: '邮件加载失败，请重试。',
+    analysisLoadFailed: '分析数据加载失败，请重试。',
     mailDetailLoading: '正在加载完整邮件…',
     retry: '重试',
 

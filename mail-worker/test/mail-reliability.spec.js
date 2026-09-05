@@ -179,6 +179,11 @@ describe('durable mail reliability', () => {
 			expect(c.env.db.sqlite.prepare('SELECT send_count FROM user WHERE user_id=1').get().send_count).toBe(1);
 		} finally { vi.useRealTimers(); }
 	});
+	it('repairs a missing daily-count table before the analysis reads it', async () => {
+		await c.env.db.prepare('DROP TABLE mail_daily_count').run();
+		expect(await daySendCount(c)).toBe(0);
+		expect(c.env.db.sqlite.prepare("SELECT name FROM sqlite_master WHERE type='table' AND name='mail_daily_count'").get()).toEqual({ name: 'mail_daily_count' });
+	});
 	it('keeps legacy sends without a requestId working', async () => {
 		delete params.requestId;
 		await emailService.send(c, params, 1);
