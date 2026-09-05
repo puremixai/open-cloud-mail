@@ -40,6 +40,18 @@
       </svg>
       <span>{{ $t('win95Idcard') }}</span>
     </div>
+
+    <div class="w95-dicon" :class="{ sel: iconSel === 'stud' }"
+         @click.stop="iconSel = 'stud'" @dblclick.stop="iconSel = ''; openStudentId()">
+      <svg width="32" height="32" viewBox="0 0 32 32">
+        <rect x="5" y="3" width="22" height="26" fill="#fff" stroke="#000"/>
+        <rect x="5" y="3" width="22" height="5" fill="#a63b2c" stroke="#000"/>
+        <path d="M9 13h9M9 17h12" stroke="#404040" fill="none"/>
+        <circle cx="21" cy="23" r="3.4" fill="#c0392b" stroke="#000"/>
+        <path d="M19.4 25.6l1.6 4 2-2.4 2 2.4 1.6-4" fill="#c0392b" stroke="#000" stroke-width=".8"/>
+      </svg>
+      <span>{{ $t('win95StudentCard') }}</span>
+    </div>
     </div>
 
     <!-- 桌面右键菜单（排列图标 / 刷新 / 属性） -->
@@ -552,6 +564,12 @@ function startMail() {
   openMail()
 }
 
+/* 打开学生证页面（桌面图标：顺带确保主窗口可见） */
+function openStudentId() {
+  openMail()
+  router.push({ name: 'idcard' })
+}
+
 function startAbout() {
   startOpen.value = false
   showAbout()
@@ -599,12 +617,13 @@ function startLogout() {
 /* 仅在收件箱页且列表已挂载时，编辑类菜单可用 */
 const onInbox = computed(() => route.meta?.name === 'email' && !!emailStore.emailScroll)
 
-/* 当前页面对应的虚拟列表（用于刷新） */
+/* 当前页面对应的虚拟列表（用于刷新 / 状态栏计数；非列表页为空） */
 const activeScroll = computed(() => {
   const name = route.meta?.name
   if (name === 'star') return emailStore.starScroll
   if (name === 'send') return emailStore.sendScroll
-  return emailStore.emailScroll
+  if (name === 'email' || name === 'content') return emailStore.emailScroll
+  return null
 })
 
 const windowTitle = computed(() => {
@@ -651,6 +670,7 @@ const menus = computed(() => [
       { t: t('sent'), a: () => router.push({ name: 'send' }), off: !hasPerm('email:send') },
       { t: t('drafts'), a: () => router.push({ name: 'draft' }), off: !hasPerm('email:send') },
       { t: t('starred'), a: () => router.push({ name: 'star' }) },
+      { t: t('win95StudentCard'), a: () => router.push({ name: 'idcard' }) },
       { t: t('settings'), a: () => router.push({ name: 'setting' }) },
     ],
   },

@@ -31,6 +31,11 @@
           <Icon icon="fluent:settings-48-regular" width="20" height="20" />
           <span class="menu-name" style="margin-left: 21px">{{$t('settings')}}</span>
         </el-menu-item>
+        <el-menu-item @click="router.push({name: 'idcard'})" index="idcard"
+                      :class="route.meta.name === 'idcard' ? 'choose-item' : ''">
+          <Icon icon="mdi:school-outline" width="20" height="20" />
+          <span class="menu-name" style="margin-left: 21px">{{$t('idcardTitle')}}</span>
+        </el-menu-item>
         <div class="manage-title" v-perm="['all-email:query','user:query','role:query','setting:query','analysis:query','reg-key:query']">
           <div>{{$t('manage')}}</div>
         </div>

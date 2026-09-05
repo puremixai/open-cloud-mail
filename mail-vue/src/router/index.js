@@ -51,6 +51,16 @@ const routes = [
                     menu: true
                 }
             },
+            {
+                path: '/idcard',
+                name: 'idcard',
+                component: () => import('@/views/idcard/index.vue'),
+                meta: {
+                    title: 'idcardTitle',
+                    name: 'idcard',
+                    menu: true
+                }
+            },
         ]
 
     },

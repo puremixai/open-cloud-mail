@@ -1059,3 +1059,57 @@ html.win95 .el-avatar {
     border-radius: 50% !important;
     overflow: hidden;
 }
+
+/* ============ 学生证展示页（views/idcard） ============ */
+/* 全局零圆角规则会削掉证件卡，这里为写实证件放行圆角（同浮动身份卡的做法） */
+html.win95 .sid-page {
+    padding-top: 24px;
+}
+html.win95 .sid-page .sid-head h2 {
+    font-size: 16px;
+    margin-bottom: 4px;
+}
+html.win95 .sid-page .sid-head p {
+    color: #404040;
+}
+html.win95 .sid-face {
+    border-radius: 16px !important;
+    box-shadow: 0 14px 32px rgba(0, 0, 0, 0.35);
+}
+html.win95 .sid-photo {
+    border-radius: 4px !important;
+}
+html.win95 .sid-photo svg {
+    border-radius: 2px !important;
+}
+html.win95 .sid-stamp {
+    border-radius: 4px !important;
+}
+/* 面板：Win95 组框（groupbox）样式 */
+html.win95 .sid-panel {
+    background: #c0c0c0;
+    border: 1px solid #808080;
+    border-radius: 0 !important;
+    box-shadow: inset -1px -1px #0a0a0a, inset 1px 1px #dfdfdf, inset -2px -2px #808080, inset 2px 2px #ffffff;
+    padding: 4px 14px 12px;
+}
+html.win95 .sid-panel legend {
+    padding: 0 6px;
+    font-size: 13px;
+}
+html.win95 .sid-item {
+    border-bottom: 1px dashed #808080;
+}
+html.win95 .sid-item:last-child {
+    border-bottom: none;
+}
+html.win95 .sid-item > span {
+    color: #404040;
+}
+html.win95 .sid-note-list {
+    color: #404040;
+}
+html.win95 .sid-hint,
+html.win95 .sid-disclaimer {
+    color: #404040;
+}
