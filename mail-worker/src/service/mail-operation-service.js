@@ -8,7 +8,11 @@ const statement = (c, sql, ...values) => c.env.db.prepare(sql).bind(...values);
 
 export async function migrateMailOperations(c) {
 	await c.env.db.prepare('CREATE TABLE IF NOT EXISTS mail_schema_version (version INTEGER PRIMARY KEY)').run();
-	if (await statement(c, 'SELECT version FROM mail_schema_version WHERE version = ?', VERSION).first()) return;
+	const version = await statement(c, 'SELECT version FROM mail_schema_version WHERE version = ?', VERSION).first();
+	if (version) {
+		const { results } = await c.env.db.prepare("SELECT name FROM sqlite_master WHERE type='table' AND name IN ('mail_operation','mail_daily_count','mail_object_cleanup')").all();
+		if (results.length === 3) return;
+	}
 	const attachments = await c.env.db.prepare("PRAGMA table_info('attachments')").all();
 	const users = await c.env.db.prepare("PRAGMA table_info('user')").all();
 	const sql = mailOperationMigration(attachments.results, users.results);
@@ -102,7 +106,17 @@ export async function acceptSendOperation(c, operationId, providerId, status, qu
 }
 
 export async function daySendCount(c, date = day()) {
-	return Number((await statement(c, 'SELECT send_count FROM mail_daily_count WHERE day=?', date).first())?.send_count ?? 0);
+	const read = () => statement(c, 'SELECT send_count FROM mail_daily_count WHERE day=?', date).first();
+	try {
+		return Number((await read())?.send_count ?? 0);
+	} catch (error) {
+		// Older deployments may have the version marker without every table if a
+		// migration was interrupted. Repair the additive schema on demand so the
+		// analysis endpoint does not fail just because this optional counter is absent.
+		if (!/no such table(?:\s*:\s*|\s+).*mail_daily_count/i.test(String(error?.message || error))) throw error;
+		await migrateMailOperations(c);
+		return Number((await read())?.send_count ?? 0);
+	}
 }
 
 export async function deleteMailBatch(c, ids) {

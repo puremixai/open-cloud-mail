@@ -2,6 +2,10 @@
   <div v-if="analysisLoading" class="analysis-loading">
     <loading/>
   </div>
+  <div v-else-if="analysisError" class="analysis-error" role="alert">
+    <p>{{ $t('analysisLoadFailed') }}</p>
+    <el-button type="primary" @click="loadAnalysis">{{ $t('retry') }}</el-button>
+  </div>
   <el-scrollbar v-else style="height: 100%;">
     <div class="analysis" :key="boxKey">
       <div class="number">
@@ -144,6 +148,7 @@ const sendTotal = ref(0)
 const accountTotal = ref(0)
 const userTotal = ref(0)
 const analysisLoading = ref(true)
+const analysisError = ref(false)
 
 const numberCount = reactive({
   normalReceiveTotal: 0,
@@ -207,10 +212,12 @@ let boxKey = ref(0)
 let senderPieLeft = window.innerWidth < 500 ? `${window.innerWidth - 110}` : '72%'
 let analysisDark = uiStore.dark
 
-onMounted(() => {
+async function loadAnalysis() {
   const timeZone = Intl.DateTimeFormat().resolvedOptions().timeZone;
-
-  analysisEcharts(timeZone).then(data => {
+  analysisLoading.value = true
+  analysisError.value = false
+  try {
+    const data = await analysisEcharts(timeZone)
     receiveTotal.value = data.numberCount.receiveTotal
     sendTotal.value = data.numberCount.sendTotal
     accountTotal.value = data.numberCount.accountTotal
@@ -240,9 +247,14 @@ onMounted(() => {
     analysisLoading.value = false
     initPicture();
     first = false
-  })
+  } catch {
+    analysisError.value = true
+  } finally {
+    analysisLoading.value = false
+  }
+}
 
-})
+onMounted(loadAnalysis)
 
 const widthChange = debounce(initPicture, 500, {
   leading: false,
@@ -743,6 +755,17 @@ function createSendGauge() {
   display: flex;
   align-items: center;
   justify-content: center;
+}
+
+.analysis-error {
+  height: 100%;
+  display: grid;
+  place-content: center;
+  justify-items: center;
+  gap: 12px;
+  padding: 24px;
+  color: var(--el-text-color-secondary);
+  text-align: center;
 }
 
 .analysis {
