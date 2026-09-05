@@ -1,48 +1,34 @@
 <template>
-  <div v-if="uiStore.win95" class="w95-desktop" @click="desktopClick" @contextmenu="onDesktopContextmenu">
+  <div v-if="uiStore.win95" ref="desktopRef" class="w95-desktop" @click="desktopClick" @contextmenu="onDesktopContextmenu">
     <!-- 桌面图标（flex 竖排，新增图标自动排列） -->
     <div class="w95-dicons" :class="{ refreshing: deskRefreshing }">
-    <div class="w95-dicon" :class="{ sel: iconSel === 'mail' }"
-         @click.stop="iconSel = 'mail'" @dblclick.stop="iconSel = ''; openMail()">
+    <button type="button" class="w95-dicon" @click.stop="openMail()">
       <svg width="32" height="32" viewBox="0 0 32 32">
         <rect x="3" y="7" width="26" height="18" fill="#fff" stroke="#000"/>
         <path d="M3 7l13 9 13-9" fill="none" stroke="#000"/>
         <path d="M3 25l10-8M29 25l-10-8" stroke="#000" fill="none"/>
       </svg>
       <span>{{ $t('inbox') }}</span>
-    </div>
-    <div class="w95-dicon" :class="{ sel: iconSel === 'bin' }"
-         @click.stop="iconSel = 'bin'" @dblclick.stop="iconSel = ''; openBin()">
+    </button>
+    <button type="button" class="w95-dicon" @click.stop="openBin()">
       <svg width="32" height="32" viewBox="0 0 32 32">
         <path d="M10 4h12l1 4H9z" fill="#dfdfdf" stroke="#000"/>
         <rect x="8" y="8" width="16" height="20" fill="#c0c0c0" stroke="#000"/>
         <path d="M12 12v12M16 12v12M20 12v12" stroke="#808080"/>
       </svg>
       <span>{{ $t('win95RecycleBin') }}</span>
-    </div>
-    <div class="w95-dicon" :class="{ sel: iconSel === 'site' }"
-         @click.stop="iconSel = 'site'" @dblclick.stop="iconSel = ''; openSite()">
-      <svg width="32" height="32" viewBox="0 0 32 32">
-        <circle cx="16" cy="16" r="12" fill="#1e6fd9" stroke="#000"/>
-        <ellipse cx="16" cy="16" rx="12" ry="4.6" fill="none" stroke="#fff"/>
-        <path d="M16 4v24" stroke="#fff" fill="none"/>
-        <path d="M6.4 11c6 3.4 13.2 3.4 19.2 0M6.4 21c6-3.4 13.2-3.4 19.2 0" fill="none" stroke="#fff"/>
-      </svg>
-      <span>{{ $t('win95Homepage') }}</span>
-    </div>
+    </button>
 
-    <div class="w95-dicon" :class="{ sel: iconSel === 'idcard' }"
-         @click.stop="iconSel = 'idcard'" @dblclick.stop="iconSel = ''; idcardClosed = false">
+    <button type="button" class="w95-dicon" @click.stop="idcardClosed = false">
       <svg width="32" height="32" viewBox="0 0 32 32">
         <rect x="4" y="6" width="24" height="20" fill="#fff" stroke="#000"/>
         <circle cx="11" cy="13" r="3" fill="#808080"/>
         <path d="M17 11h8M17 15h8M8 20h16" stroke="#000" fill="none"/>
       </svg>
       <span>{{ $t('win95Idcard') }}</span>
-    </div>
+    </button>
 
-    <div class="w95-dicon" :class="{ sel: iconSel === 'stud' }"
-         @click.stop="iconSel = 'stud'" @dblclick.stop="iconSel = ''; openStudentId()">
+    <button type="button" class="w95-dicon" @click.stop="openStudentId()">
       <svg width="32" height="32" viewBox="0 0 32 32">
         <rect x="5" y="3" width="22" height="26" fill="#fff" stroke="#000"/>
         <rect x="5" y="3" width="22" height="5" fill="#a63b2c" stroke="#000"/>
@@ -51,28 +37,28 @@
         <path d="M19.4 25.6l1.6 4 2-2.4 2 2.4 1.6-4" fill="#c0392b" stroke="#000" stroke-width=".8"/>
       </svg>
       <span>{{ $t('win95StudentCard') }}</span>
-    </div>
+    </button>
     </div>
 
     <!-- 桌面右键菜单（排列图标 / 刷新 / 属性） -->
-    <div class="w95-dropdown w95-desk-menu" v-if="deskMenu.open"
+    <div class="w95-dropdown w95-desk-menu" role="menu" @keydown="popupKey" v-if="deskMenu.open"
          :style="{ left: deskMenu.x + 'px', top: deskMenu.y + 'px' }">
-      <div class="w95-ditem" @click.stop="arrangeIcons">{{ $t('win95Arrange') }}</div>
-      <div class="w95-ditem" @click.stop="refreshDesktop">{{ $t('win95Refresh') }}</div>
+      <button type="button" role="menuitem" class="w95-ditem" @click.stop="arrangeIcons">{{ $t('win95Arrange') }}</button>
+      <button type="button" role="menuitem" class="w95-ditem" @click.stop="refreshDesktop">{{ $t('win95Refresh') }}</button>
       <div class="w95-dsep"></div>
-      <div class="w95-ditem" @click.stop="closeDeskMenu(); showAbout()">{{ $t('win95Properties') }}</div>
+      <button type="button" role="menuitem" class="w95-ditem" @click.stop="closeDeskMenu(); showAbout()">{{ $t('win95Properties') }}</button>
     </div>
 
     <!-- 用户身份卡（双面卡：正面票据 / 背面银行卡，⇄ 翻转切换；可拖拽，点击邮箱复制邮箱） -->
     <div class="w95-idcard" :class="{ bank: idcardBank }" v-if="userStore.user && !idcardClosed"
          :style="idcardStyle" @mousedown="onIdcardDown">
-      <button class="w95-idcard-style" @click.stop="switchIdcardStyle" :title="$t('win95IdcardStyle')">
+      <button class="w95-idcard-style" @click.stop="switchIdcardStyle" :aria-label="$t('win95IdcardStyle')" :title="$t('win95IdcardStyle')">
         <svg width="11" height="11" viewBox="0 0 12 12" aria-hidden="true">
           <path d="M1.5 3.5h7M6 1l2.5 2.5L6 6" fill="none" stroke="currentColor" stroke-width="1.3"/>
           <path d="M10.5 8.5h-7M6 11L3.5 8.5 6 6" fill="none" stroke="currentColor" stroke-width="1.3"/>
         </svg>
       </button>
-      <button class="w95-idcard-close" @click.stop="closeIdcard" :title="$t('win95Close')">
+      <button class="w95-idcard-close" @click.stop="closeIdcard" :aria-label="$t('win95Close')" :title="$t('win95Close')">
         <svg width="9" height="9" viewBox="0 0 8 8" aria-hidden="true"><path d="M1 1l6 6M7 1L1 7" stroke="currentColor" stroke-width="1.3"/></svg>
       </button>
       <div class="w95-idcard-flip" :class="{ bank: idcardBank }">
@@ -82,8 +68,8 @@
             <span class="w95-idcard-brand">{{ settingStore.settings.title || 'MAIL' }}</span>
             <span class="w95-idcard-mono">{{ idcardMono }}</span>
           </div>
-          <div class="w95-idcard-email" :title="userStore.user.email"
-               @click.stop="copyText(userStore.user.email, 'win95IdcardCopyEmailTip')">{{ userStore.user.email }}</div>
+          <button type="button" class="w95-idcard-email" :tabindex="idcardBank ? -1 : 0" :title="userStore.user.email"
+               @click.stop="copyText(userStore.user.email, 'win95IdcardCopyEmailTip')">{{ userStore.user.email }}</button>
           <div class="w95-idcard-no">ID · {{ userStore.user.userId }}</div>
           <div class="w95-idcard-dash"></div>
           <div class="w95-idcard-foot">{{ $t('win95IdcardWish') }}</div>
@@ -136,8 +122,8 @@
             <span class="w95-bank-name">{{ userStore.user.name || '—' }}</span>
             <span class="w95-bank-valid">{{ $t('win95IdcardValidThru') }} {{ bankValid }}</span>
           </div>
-          <div class="w95-bank-email" :title="$t('win95IdcardCopyEmailTip')"
-               @click.stop="copyText(userStore.user.email, 'win95IdcardCopyEmailTip')">{{ userStore.user.email }}</div>
+          <button type="button" class="w95-bank-email" :tabindex="!idcardBank ? -1 : 0" :title="$t('win95IdcardCopyEmailTip')"
+               @click.stop="copyText(userStore.user.email, 'win95IdcardCopyEmailTip')">{{ userStore.user.email }}</button>
           <div class="w95-bank-circles" aria-hidden="true"><i></i><i></i></div>
         </div>
       </div>
@@ -158,10 +144,10 @@
         </svg>
         <span class="ttext">{{ windowTitle }}</span>
         <span class="tbtns">
-          <button class="w95-tbtn" :title="$t('win95Min')" @click.stop="minimize">
+          <button class="w95-tbtn" :aria-label="$t('win95Min')" :title="$t('win95Min')" @click.stop="minimize">
             <svg width="8" height="8" viewBox="0 0 8 8"><rect x="1" y="5" width="5" height="2" fill="#000"/></svg>
           </button>
-          <button class="w95-tbtn" :title="maximized ? $t('win95Restore') : $t('win95Max')" @click.stop="toggleMax">
+          <button class="w95-tbtn" :aria-label="maximized ? $t('win95Restore') : $t('win95Max')" :title="maximized ? $t('win95Restore') : $t('win95Max')" @click.stop="toggleMax">
             <svg v-if="maximized" width="9" height="9" viewBox="0 0 9 9">
               <rect x="0.5" y="2.5" width="6" height="5.5" fill="none" stroke="#000"/>
               <path d="M2.5 2.5v-2h6v5.5h-2" fill="none" stroke="#000"/>
@@ -171,35 +157,26 @@
               <rect x="0.5" y="0.5" width="8" height="2" fill="#000"/>
             </svg>
           </button>
-          <button class="w95-tbtn" :title="$t('win95Close')" @click.stop="closeWin">
+          <button class="w95-tbtn" :aria-label="$t('win95Close')" :title="$t('win95Close')" @click.stop="closeWin">
             <svg width="8" height="8" viewBox="0 0 8 8"><path d="M1 1l6 6M7 1L1 7" stroke="#000" stroke-width="1.4"/></svg>
           </button>
         </span>
       </div>
 
       <!-- 菜单栏 -->
-      <div class="w95-menubar">
-      <span
-          v-for="(menu, mi) in menus"
-          :key="menu.label"
-          class="w95-menu-item"
-          :class="{ open: openIndex === mi }"
-          @click.stop="toggleMenu(mi)"
-          @mouseenter="hoverMenu(mi)"
-      >
-        {{ menu.label }}
-        <span class="w95-dropdown" v-show="openIndex === mi">
-          <template v-for="(item, ii) in menu.items" :key="ii">
-            <div v-if="item.sep" class="w95-dsep"></div>
-            <div
-                v-else
-                class="w95-ditem"
-                :class="{ disabled: item.off }"
-                @click.stop="runItem(item)"
-            >{{ item.t }}</div>
-          </template>
-        </span>
-      </span>
+      <div class="w95-menubar" role="menubar" @keydown="menuBarKey">
+        <div v-for="(menu, mi) in menus" :key="menu.label" class="w95-menu-group">
+          <button type="button" role="menuitem" class="w95-menu-item" :class="{ open: openIndex === mi }"
+                  :data-menu-index="mi" aria-haspopup="menu" :aria-expanded="openIndex === mi"
+                  @click.stop="toggleMenu(mi)" @mouseenter="hoverMenu(mi)">{{ menu.label }}</button>
+          <div class="w95-dropdown" role="menu" :aria-label="menu.label" v-show="openIndex === mi" @keydown="popupKey">
+            <template v-for="(item, ii) in menu.items" :key="ii">
+              <div v-if="item.sep" class="w95-dsep" role="separator"></div>
+              <button v-else type="button" role="menuitem" class="w95-ditem" :disabled="item.off"
+                      :class="{ disabled: item.off }" @click.stop="runItem(item)">{{ item.t }}</button>
+            </template>
+          </div>
+        </div>
       </div>
 
       <!-- 内容区 -->
@@ -214,34 +191,34 @@
     </div>
 
     <!-- 开始菜单 -->
-    <div class="w95-startmenu" v-show="startOpen" @click.stop>
+    <div class="w95-startmenu" role="menu" v-show="startOpen" @click.stop @keydown="popupKey">
       <div class="w95-sm-side">Windows<span class="w95-sm-95">&nbsp;95</span></div>
       <div class="w95-sm-items">
-        <div class="w95-sm-item" @click.stop="startProfile">
+        <button type="button" role="menuitem" class="w95-sm-item" @click.stop="startProfile">
           <svg width="18" height="18" viewBox="0 0 16 16">
             <circle cx="8" cy="4.4" r="2.9" fill="#ffd29c" stroke="#000"/>
             <path d="M2.6 14.2c.5-3.4 2.5-4.9 5.4-4.9s4.9 1.5 5.4 4.9z" fill="#000080" stroke="#000"/>
           </svg>
           {{ $t('settings') }}
-        </div>
+        </button>
         <div class="w95-dsep"></div>
-        <div class="w95-sm-item" @click.stop="startMail">
+        <button type="button" role="menuitem" class="w95-sm-item" @click.stop="startMail">
           <svg width="18" height="18" viewBox="0 0 16 16">
             <rect x="1.5" y="3.5" width="13" height="9" fill="#fff" stroke="#000"/>
             <path d="M1.5 3.5L8 8.5l6.5-5" fill="none" stroke="#000"/>
           </svg>
           {{ $t('inbox') }}
-        </div>
+        </button>
         <div class="w95-dsep"></div>
-        <div class="w95-sm-item" @click.stop="startAbout">
+        <button type="button" role="menuitem" class="w95-sm-item" @click.stop="startAbout">
           <svg width="18" height="18" viewBox="0 0 16 16">
             <circle cx="8" cy="8" r="7" fill="#0000dd" stroke="#000"/>
             <text x="8" y="11.5" text-anchor="middle" fill="#fff" font-size="9" font-weight="bold">?</text>
           </svg>
           {{ $t('about') }}
-        </div>
+        </button>
         <div class="w95-dsep"></div>
-        <div class="w95-sm-item" @click.stop="startTheme">
+        <button type="button" role="menuitem" class="w95-sm-item" @click.stop="startTheme">
           <svg width="18" height="18" viewBox="0 0 16 16">
             <rect x="1.5" y="1.8" width="13" height="9.4" fill="#c0c0c0" stroke="#000"/>
             <path d="M3 3.4h10v6.2H3z" fill="#1e6fd9"/>
@@ -250,9 +227,9 @@
             <rect x="3.8" y="14" width="8.4" height="1.4" fill="#c0c0c0" stroke="#000"/>
           </svg>
           {{ $t('win95SwitchTheme') }}
-        </div>
+        </button>
         <div class="w95-dsep"></div>
-        <div class="w95-sm-item" @click.stop="startLogout">
+        <button type="button" role="menuitem" class="w95-sm-item" @click.stop="startLogout">
           <svg width="18" height="18" viewBox="0 0 16 16">
             <circle cx="6.4" cy="8" r="5.4" fill="none" stroke="#000" stroke-width="1.6"/>
             <path d="M6.4 2.6v5.4" stroke="#000" stroke-width="1.6"/>
@@ -260,21 +237,21 @@
             <path d="M12.8 5.6L15.2 8l-2.4 2.4" fill="none" stroke="#000" stroke-width="1.6"/>
           </svg>
           {{ $t('win95Logout') }}
-        </div>
+        </button>
         <div class="w95-dsep"></div>
-        <div class="w95-sm-item" @click.stop="startShutdown">
+        <button type="button" role="menuitem" class="w95-sm-item" @click.stop="startShutdown">
           <svg width="18" height="18" viewBox="0 0 16 16">
             <path d="M8 1v6" stroke="#000" stroke-width="1.8"/>
             <path d="M4 3a6.5 6.5 0 1 0 8 0" fill="none" stroke="#000" stroke-width="1.8"/>
           </svg>
           {{ $t('win95Shutdown') }}
-        </div>
+        </button>
       </div>
     </div>
 
     <!-- 任务栏 -->
     <div class="w95-taskbar" @click.stop>
-      <button class="w95-btn w95-startbtn" :class="{ on: startOpen }" @click="startOpen = !startOpen">
+      <button class="w95-btn w95-startbtn" :class="{ on: startOpen }" aria-haspopup="menu" :aria-expanded="startOpen" @click="toggleStart" @keydown.down.prevent="openStart">
         <svg width="16" height="16" viewBox="0 0 16 16">
           <path d="M1 3.5l6-1v5H1zM8 2.3l7-1.2v6H8zM1 8.5h6v5l-6-1z" fill="#ff3b30" stroke="#a00" stroke-width=".5"/>
           <path d="M8 8.5h7v6l-7-1.2z" fill="#3bc44b" stroke="#080" stroke-width=".5"/>
@@ -304,16 +281,16 @@
     </div>
 
     <!-- 关机画面彩蛋 -->
-    <div class="w95-shutdown" v-show="shutdownScreen" @click="shutdownScreen = false">
+    <button type="button" class="w95-shutdown" v-show="shutdownScreen" @click="shutdownScreen = false">
       {{ $t('win95ShutdownScreen') }}
-    </div>
+    </button>
   </div>
   <!-- 非 Win95 模式：原样透传 -->
   <slot v-else/>
 </template>
 
 <script setup>
-import { ref, reactive, computed, onMounted, onBeforeUnmount } from 'vue'
+import { ref, reactive, computed, onMounted, onBeforeUnmount, nextTick } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useI18n } from 'vue-i18n'
 import { useUiStore } from '@/store/ui.js'
@@ -331,6 +308,7 @@ const emailStore = useEmailStore()
 const settingStore = useSettingStore()
 const userStore = useUserStore()
 
+const desktopRef = ref(null)
 const openIndex = ref(-1)
 const clock = ref('')
 const clockTitle = ref('')
@@ -566,16 +544,9 @@ function desktopClick() {
 }
 
 function openBin() {
-  ElMessageBox.alert(t('win95BinEmpty'), t('win95RecycleBin'), { confirmButtonText: t('confirm') })
+  ElMessageBox.alert(t('ux.recycleUnsupported'), t('win95RecycleBin'), { confirmButtonText: t('confirm') })
 }
 
-function openSite() {
-  ElMessage({
-    message: t('win95UnderConstruction'),
-    type: 'info',
-    plain: true,
-  })
-}
 
 function startProfile() {
   startOpen.value = false
@@ -666,7 +637,7 @@ const menus = computed(() => [
   {
     label: t('menuFile'),
     items: [
-      { t: t('newMail'), a: () => uiStore.writerRef?.open?.() },
+      { t: t('newMail'), a: () => uiStore.writerRef?.open?.(), off: !hasPerm('email:send') },
       { sep: true },
       { t: t('logOut'), a: clickLogout },
     ],
@@ -683,7 +654,7 @@ const menus = computed(() => [
   {
     label: t('menuView'),
     items: [
-      { t: t('refreshList'), a: () => activeScroll.value?.refreshList?.() },
+      { t: t('refreshList'), a: () => activeScroll.value?.refreshList?.(), off: !activeScroll.value },
       { t: t('accountPanel'), a: () => { uiStore.accountShow = !uiStore.accountShow } },
     ],
   },
@@ -713,9 +684,35 @@ const menus = computed(() => [
   },
 ])
 
-function toggleMenu(mi) {
+async function toggleMenu(mi) {
   openIndex.value = openIndex.value === mi ? -1 : mi
+  if (openIndex.value !== -1) { await nextTick(); focusMenuItem(mi) }
 }
+function focusMenuItem(mi) {
+  desktopRef.value?.querySelectorAll('.w95-menu-group')[mi]?.querySelector('[role="menu"] button:not(:disabled)')?.focus()
+}
+async function menuBarKey(e) {
+  if (e.key === 'ArrowLeft' || e.key === 'ArrowRight') {
+    e.preventDefault()
+    const index = Number(e.target.closest('.w95-menu-group')?.querySelector('[data-menu-index]')?.dataset.menuIndex || 0)
+    const next = (index + (e.key === 'ArrowRight' ? 1 : -1) + menus.value.length) % menus.value.length
+    if (openIndex.value !== -1) { openIndex.value = next; await nextTick(); focusMenuItem(next) }
+    else desktopRef.value?.querySelector(`[data-menu-index="${next}"]`)?.focus()
+  } else if (e.key === 'ArrowDown' && e.target.matches('[data-menu-index]')) {
+    e.preventDefault(); openIndex.value = Number(e.target.dataset.menuIndex); await nextTick(); focusMenuItem(openIndex.value)
+  }
+}
+function popupKey(e) {
+  if (!['ArrowDown', 'ArrowUp', 'Home', 'End'].includes(e.key)) return
+  e.preventDefault(); e.stopPropagation()
+  const items = [...e.currentTarget.querySelectorAll('button:not(:disabled)')]
+  const current = items.indexOf(document.activeElement)
+  const index = e.key === 'Home' ? 0 : e.key === 'End' ? items.length - 1 : (current + (e.key === 'ArrowDown' ? 1 : -1) + items.length) % items.length
+  items[index]?.focus()
+}
+async function openStart() { startOpen.value = true; await nextTick(); desktopRef.value?.querySelector('.w95-startmenu button')?.focus() }
+function toggleStart() { if (startOpen.value) startOpen.value = false; else openStart() }
+
 
 function hoverMenu(mi) {
   if (openIndex.value !== -1 && openIndex.value !== mi) {
@@ -725,6 +722,7 @@ function hoverMenu(mi) {
 
 function runItem(item) {
   if (item.off) return
+  desktopRef.value?.querySelector(`[data-menu-index="${openIndex.value}"]`)?.focus()
   openIndex.value = -1
   item.a?.()
 }
@@ -754,9 +752,18 @@ function onDocClick() {
 }
 
 function onKeydown(e) {
+  if (e.key === 'Tab') {
+    if (openIndex.value !== -1) desktopRef.value?.querySelector(`[data-menu-index="${openIndex.value}"]`)?.focus()
+    else if (startOpen.value) desktopRef.value?.querySelector('.w95-startbtn')?.focus()
+    openIndex.value = -1; startOpen.value = false; deskMenu.open = false; return
+  }
   if (e.key !== 'Escape') return
+  if (openIndex.value !== -1) desktopRef.value?.querySelector(`[data-menu-index="${openIndex.value}"]`)?.focus()
+  else if (startOpen.value) desktopRef.value?.querySelector('.w95-startbtn')?.focus()
   openIndex.value = -1
   startOpen.value = false
+  deskMenu.open = false
+  shutdownScreen.value = false
 }
 
 onMounted(() => {

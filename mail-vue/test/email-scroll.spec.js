@@ -106,3 +106,136 @@ it('refreshes an active authenticated list on account switch without recursive r
   expect(request.mock.calls.length).toBeLessThan(4)
   localStorage.removeItem('token')
 })
+
+const renderedOptions = props => {
+  const result = options(props)
+  result.global.stubs.UseVirtualList = { props: ['list', 'options'], template: '<div><template v-for="(item, index) in list"><slot :data="item" :index="index" /></template></div>', methods: { scrollTo() {} } }
+  return result
+}
+
+it('reports the actual selected count, caps loaded selection at 95 and resets after clearing', async () => {
+  wrapper = mount(EmailScroll, renderedOptions({ getEmailList: async () => ({ list: Array.from({ length: 100 }, (_, index) => ({ emailId: index + 1 })), total: 100 }) }))
+  await flushPromises()
+  wrapper.vm.handleCheckAllChange(true); await nextTick()
+  expect(wrapper.get('[data-test="selection-status"]').attributes('data-count')).toBe('95')
+  expect(wrapper.text()).toContain('ux.selectionLimit')
+  wrapper.vm.emailList[0].checked = false; await nextTick()
+  expect(wrapper.get('[data-test="selection-status"]').attributes('data-count')).toBe('94')
+  wrapper.vm.emailList.splice(0); await nextTick()
+  expect(wrapper.find('[data-test="selection-status"]').exists()).toBe(false)
+  expect(wrapper.vm.$.setupState.isSelectMax).toBe(false)
+})
+
+it('uses a native open-mail button separate from checkbox and star controls', async () => {
+  wrapper = mount(EmailScroll, renderedOptions({ getEmailList: async () => page(1) }))
+  await flushPromises()
+  const row = wrapper.get('.email-row')
+  expect(row.attributes('tabindex')).toBeUndefined()
+  expect(row.attributes('aria-label')).toBeTruthy()
+  const open = row.get('button.mail-open')
+  expect(open.attributes('type')).toBe('button')
+  expect(open.attributes('aria-label')).toBeTruthy()
+  expect(open.find('button, input').exists()).toBe(false)
+  await open.trigger('click')
+  expect(wrapper.emitted('jump')).toHaveLength(1)
+  await row.get('el-checkbox-stub').trigger('keydown', { key: 'Enter' })
+  expect(wrapper.emitted('jump')).toHaveLength(1)
+  await open.trigger('keydown', { key: 'F10', shiftKey: true })
+  expect(wrapper.vm.$.setupState.rightClickEmail.emailId).toBe(1)
+})
+
+it('uses the observed container width for virtual height and exposes density in Win95', async () => {
+  let resize
+  const disconnect = vi.fn()
+  vi.stubGlobal('ResizeObserver', class { constructor(callback) { resize = callback } observe() {} disconnect() { disconnect() } })
+  localStorage.removeItem('email-dense')
+  useUiStore().win95 = true
+  wrapper = mount(EmailScroll, renderedOptions({ getEmailList: async () => page(1) }))
+  await flushPromises()
+  resize([{ contentRect: { width: 620 } }]); await nextTick()
+  expect(wrapper.classes()).toContain('mail-narrow')
+  expect(wrapper.vm.$.setupState.itemHeight).toBe(88)
+  expect(wrapper.get('[data-test="density-toggle"]').exists()).toBe(true)
+  await wrapper.get('[data-test="density-toggle"]').trigger('click')
+  expect(wrapper.vm.$.setupState.itemHeight).toBe(72)
+  resize([{ contentRect: { width: 1100 } }]); await nextTick()
+  expect(wrapper.vm.$.setupState.itemHeight).toBe(40)
+  expect(wrapper.attributes('style')).toContain('--mail-row-height: 40px')
+  wrapper.unmount(); wrapper = null
+  expect(disconnect).toHaveBeenCalled()
+  vi.unstubAllGlobals()
+})
+
+it('keeps current mail visible when a refresh fails and offers a retry', async () => {
+  const request = vi.fn().mockResolvedValueOnce(page(1)).mockRejectedValueOnce(new Error('offline'))
+  wrapper = mount(EmailScroll, renderedOptions({ getEmailList: request }))
+  await flushPromises()
+  await wrapper.get('button[aria-label="ux.refreshMail"]').trigger('click'); await flushPromises()
+  expect(wrapper.vm.emailList.map(item => item.emailId)).toEqual([1])
+  expect(wrapper.find('[role="alert"] button').exists()).toBe(true)
+})
+
+it('clears a batch operation lock on account change and ignores its later failure', async () => {
+  let reject
+  wrapper = mount(EmailScroll, renderedOptions({ getEmailList: async () => page(1), emailRead: () => new Promise((_, r) => { reject = r }) }))
+  await flushPromises()
+  wrapper.vm.handleCheckAllChange(true)
+  wrapper.vm.handleRead()
+  expect(wrapper.vm.$.setupState.batchAction).toBe('read')
+  useAccountStore().currentAccountId = 5
+  await nextTick()
+  expect(wrapper.vm.$.setupState.batchAction).toBe('')
+  reject(new Error('old account failed')); await flushPromises()
+  expect(wrapper.vm.$.setupState.batchError).toBe(false)
+})
+
+it('shows one star control and locks selection and mutations while retained rows refresh', async () => {
+  const pending = deferred(), initial = page(1)
+  initial.list[0].isStar = 1
+  const request = vi.fn().mockResolvedValueOnce(initial).mockReturnValueOnce(pending.promise)
+  wrapper = mount(EmailScroll, renderedOptions({ getEmailList: request, showUnread: true }))
+  await flushPromises()
+  wrapper.vm.handleCheckAllChange(true); await nextTick()
+  const row = wrapper.get('.email-row')
+  expect(row.find('.name svg').exists()).toBe(false)
+  await wrapper.get('button[aria-label="ux.refreshMail"]').trigger('click')
+  expect(row.get('el-checkbox-stub').attributes('disabled')).toBe('true')
+  expect(row.get('button[data-action="star"]').attributes('disabled')).toBeDefined()
+  expect(wrapper.get('button[aria-label="ux.deleteSelected"]').attributes('disabled')).toBeDefined()
+  expect(wrapper.get('[data-test="selection-status"]').attributes('data-count')).toBe('1')
+  pending.resolve(page(2)); await flushPromises()
+  expect(wrapper.find('[data-test="selection-status"]').exists()).toBe(false)
+  expect(wrapper.vm.emailList[0].emailId).toBe(2)
+})
+
+it('drops a pending context reply when a new search clears the list', async () => {
+  const pending = deferred()
+  http.get.mockReturnValueOnce(pending.promise)
+  const writer = { openReply: vi.fn() }
+  useUiStore().writerRef = writer
+  wrapper = mount(EmailScroll, renderedOptions({ getEmailList: async () => page(1) }))
+  await flushPromises()
+  wrapper.vm.$.setupState.openReply(wrapper.vm.emailList[0])
+  await wrapper.vm.refreshList(true)
+  pending.resolve({ emailId: 1, content: 'old search mail' }); await flushPromises()
+  expect(writer.openReply).not.toHaveBeenCalled()
+})
+
+it('updates the filtered result total once per removed loaded mail and retains it on cursor loads', async () => {
+  const initial = { list: Array.from({ length: 50 }, (_, index) => ({ emailId: 100 - index })), total: 123, latestEmail: { emailId: 100 } }
+  const request = vi.fn().mockResolvedValueOnce(initial).mockResolvedValueOnce({ ...page(50), total: null })
+  wrapper = mount(EmailScroll, options({ getEmailList: request, emptyMessage: 'ux.emptySearch' }))
+  await flushPromises()
+  // Repeated ids and unknown/unloaded ids must not inflate the decrement.
+  wrapper.vm.deleteEmail([100, 100, 99, 900])
+  expect(wrapper.vm.total).toBe(121)
+  await flushPromises()
+  expect(request.mock.calls[1][0]).toBe(51)
+  expect(wrapper.vm.total).toBe(121)
+  // The same deletion may also arrive from the shared store broadcast.
+  useEmailStore().deleteIds = [100, 99]
+  await flushPromises()
+  expect(wrapper.vm.total).toBe(121)
+  wrapper.vm.deleteEmail([900])
+  expect(wrapper.vm.total).toBe(121)
+})

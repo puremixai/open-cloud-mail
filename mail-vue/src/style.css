@@ -50,26 +50,26 @@ img {
 button, input, select, textarea {
     font-family: inherit;
     font-size: inherit;
-    outline: none;
     border: none;
     background: none;
 }
 
-*:focus {
-    outline: none;
+:focus-visible {
+    outline: 2px solid var(--focus-color, #096dd9);
+    outline-offset: 3px;
 }
 
 .el-message {
-    white-space: nowrap !important;
+    white-space: normal !important;
+    overflow-wrap: anywhere;
+    max-width: calc(100vw - 32px);
 }
 
 .message-bottom {
     top: auto !important;
     bottom: 20px !important;
 
-    .el-icon {
-        display: none !important;
-    }
+
 }
 
 .el-input-group__append, .el-input-group__prepend {
@@ -105,10 +105,11 @@ button, input, select, textarea {
     max-height: 220px !important;
 }
 
-:root {
-    --el-color-primary: #1890ff;
-    --el-color-primary-dark-2: #1064c0;
-    --el-color-primary-light-3: #4dabff;
+html:root {
+    --el-color-primary: #096dd9;
+    --focus-color: #096dd9;
+    --el-color-primary-dark-2: #0758b0;
+    --el-color-primary-light-3: #0870db;
     --el-color-primary-light-5: #69c0ff;
     --el-color-primary-light-7: #91d5ff;
     --el-color-primary-light-9: #e6f7ff;
@@ -126,7 +127,7 @@ button, input, select, textarea {
     --aside-right-border: 3px 0 5px rgba(0, 21, 41, .35);
     --choose-account-background: var(--el-color-primary-light-8);
     --el-text-color-regular: var(--el-text-color-primary);
-    --email-scroll-content-color: rgba(25, 41, 59, 0.4);
+    --email-scroll-content-color: #586575;
     --email-hover-background: #F2F6FC;
     --email-right-click-background: #FDF6EC;
     --login-border: #e7e9ec;
@@ -134,7 +135,8 @@ button, input, select, textarea {
     --login-switch-color: #006be6;
     --scrollbar-track-color: #A8ABB2;
     --base-border-color: #DCDFE6;
-    --secondary-text-color: #909399;
+    --secondary-text-color: #626975;
+    --el-text-color-secondary: #626975;
     --message-block-color: rgba(0, 0, 0, 0);
     --loading-hide-transition: all 200ms;
     --vt-x: 50%;
@@ -143,7 +145,7 @@ button, input, select, textarea {
     --vt-easing: ease-out;
 }
 
-.dark {
+html.dark {
     --extra-light-fill: #191919;
     --light-ill: #262727;
     --light-border: #414243;
@@ -156,7 +158,8 @@ button, input, select, textarea {
     --light-border-color: #414243;
     --aside-right-border: 3px 0 5px #0A0A0A;
     --choose-account-background: #39393A;
-    --email-scroll-content-color: rgba(255, 255, 255, 0.3);
+    --email-scroll-content-color: #aab2bd;
+    --focus-color: #75b6ff;
     --email-hover-background: #1D1E1F;
     --email-right-click-background: var(--email-hover-background);
     --login-border: #414243;
@@ -165,6 +168,7 @@ button, input, select, textarea {
     --scrollbar-track-color: #8D9095;
     --base-border-color: #4C4D4F;
     --secondary-text-color: #A3A6AD;
+    --el-text-color-secondary: #A3A6AD;
     --message-block-color: rgba(30, 30, 30, 0.2);
     --el-border-color: #414243 !important;
 }
@@ -211,4 +215,23 @@ html[data-theme-to="light"]::view-transition-old(root) {
 @keyframes vt-radial-out {
     from { clip-path: circle(var(--vt-end-radius, 0px) at var(--vt-x) var(--vt-y)); }
     to   { clip-path: circle(0px at var(--vt-x) var(--vt-y)); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { animation-duration: .01ms !important; animation-iteration-count: 1 !important; transition-duration: .01ms !important; scroll-behavior: auto !important; }
+}
+
+html:not(.win95) button:focus-visible,
+html:not(.win95) a:focus-visible,
+html:not(.win95) [tabindex]:focus-visible { outline: 2px solid var(--focus-color); outline-offset: 3px; }
+html:not(.win95) .el-button--primary:not(.is-plain) {
+  --el-button-bg-color: #096dd9;
+  --el-button-border-color: #096dd9;
+  --el-button-hover-bg-color: #075fbf;
+  --el-button-hover-border-color: #075fbf;
+  --el-button-active-bg-color: #064e9b;
+  --el-button-active-border-color: #064e9b;
+  --el-button-text-color: #fff;
+  --el-button-hover-text-color: #fff;
+  --el-button-active-text-color: #fff;
 }

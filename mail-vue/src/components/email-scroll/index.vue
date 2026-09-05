@@ -1,34 +1,41 @@
 <template>
-  <div class="email-container">
-    <div class="header-actions">
+  <div ref="container" class="email-container" :class="{ 'mail-narrow': isMobile, 'mail-wide': !isMobile }" :style="{ '--mail-row-height': itemHeight + 'px' }">
+    <div class="mail-tools">
+    <slot name="filters" />
+    <div class="header-actions" role="group" :aria-label="t('ux.mailActions')">
       <el-checkbox
           v-model="checkAll"
           :indeterminate="isIndeterminate"
-          :disabled="!emailList.length || loading"
+          :disabled="!emailList.length || loading || refreshing || !!batchAction"
+          :aria-label="t('ux.selectLoaded')"
           @change="handleCheckAllChange"
       >
       </el-checkbox>
       <div class="header-left" :style="'padding-left:' + actionLeft">
 
         <slot name="first"></slot>
-        <Icon class="icon reload" icon="ion:reload" width="18" height="18" @click="refresh"/>
-        <Icon v-perm="'email:delete'" class="icon delete" icon="uiw:delete" width="16" height="16"
+        <IconButton action="refresh" :label="t('ux.refreshMail')" :loading="loading || refreshing" :disabled="!!batchAction || starRequests.size > 0" @click="refresh"/>
+        <IconButton v-perm="'email:delete'" action="delete" :label="t('ux.deleteSelected')" :loading="batchAction === 'delete'" :disabled="!!batchAction || refreshing"
               v-if="getSelectedMailsIds().length > 0"
               @click="handleDelete"/>
-        <Icon v-perm="'email:delete'" class="icon delete" icon="fluent:mail-read-20-regular" width="21" height="21"
+        <IconButton action="read" :label="t('markAsRead')" :loading="batchAction === 'read'" :disabled="!!batchAction || refreshing"
               v-if="getSelectedMailsIds().length > 0 && showUnread"
               @click="handleRead"/>
-        <Icon v-if="!uiStore.win95" class="icon" icon="mdi:format-line-spacing" width="18" height="18"
-              :title="$t('listDensity')" @click="toggleDense"/>
+        <IconButton data-test="density-toggle" action="density" :label="t(dense ? 'ux.comfortableDensity' : 'ux.compactDensity')" :aria-pressed="dense" @click="toggleDense"/>
       </div>
 
       <div class="header-right">
         <span class="email-count" v-if="total">{{ $t('emailCount', {total: total}) }}</span>
-        <Icon v-if="showAccountIcon" class="more-icon icon" width="16" height="16" icon="akar-icons:dot-grid-fill"
+        <IconButton v-if="showAccountIcon" action="accounts" :label="t('ux.toggleAccounts')" :aria-expanded="uiStore.accountShow"
               @click="changeAccountShow"/>
       </div>
     </div>
 
+    <div v-if="checkedEmailCount" class="selection-status" role="status" data-test="selection-status" :data-count="checkedEmailCount">
+      {{ t('ux.selectedMail', { count: checkedEmailCount }) }}
+      <span v-if="isSelectMax">{{ t('ux.selectionLimit', { count: MAX_SELECT_COUNT }) }}</span>
+      <span>{{ t('ux.loadedSelectionOnly') }}</span>
+    </div>
     <!-- Win95 表头：对齐设计稿的灰色凸起列头（仅桌面紧凑模式） -->
     <div class="w95-list-head" v-if="uiStore.win95 && !isMobile">
       <span class="h-cc"></span>
@@ -37,8 +44,12 @@
       <span class="h-date">{{ $t('win95ColDate') }}</span>
     </div>
 
+    </div>
     <div ref="scroll" class="scroll">
-      <div v-if="listError" role="alert">{{ t('mailLoadFailed') }} <button @click="refreshList">{{ t('retry') }}</button></div>
+      <div v-if="listError" class="feedback" role="alert">{{ t(listError === 'forbidden' ? 'ux.mailForbidden' : 'mailLoadFailed') }} <button type="button" @click="refreshList(false)">{{ t('retry') }}</button></div>
+      <div v-if="refreshing" class="feedback" role="status">{{ t('ux.refreshingMail') }}</div>
+      <div v-if="batchError" class="feedback" role="alert">{{ t('ux.mailActionFailed') }} <button type="button" @click="retryBatch?.()">{{ t('retry') }}</button></div>
+      <div v-if="starError" class="feedback" role="alert">{{ t('ux.starFailed') }}</div>
       <div v-if="actionLoading" role="status">{{ t('mailDetailLoading') }}</div>
       <div v-if="actionError" role="alert">{{ t('mailLoadFailed') }} <button @click="retryAction?.()">{{ t('retry') }}</button></div>
       <UseVirtualList ref="scrollbarRef"
@@ -53,6 +64,8 @@
           <template #default="{ data: item, index }" >
             <div :class="['email-row', props.type, { 'right-checked': item.rightChecked, dense: dense }]"
                  :data-checked="item.checked"
+                 role="group" :aria-label="t('ux.openMail', { sender: item.name || item.sendEmail || '', subject: item.subject || t('ux.noSubject') })"
+                 @keydown="handleRowKey($event, item)"
                  @click="jumpDetails(item)"
                  v-if="!item.expand"
                  :key="item.emailId"
@@ -60,12 +73,10 @@
             >
               <el-checkbox :class=" props.type === 'all-email' ? 'all-email-checkbox' : 'checkbox'"
                            v-model="item.checked"
-                           :disabled="!item.checked && isSelectMax"
+                           :disabled="(!item.checked && isSelectMax) || refreshing || !!batchAction"
+                           :aria-label="t('ux.selectMail', { subject: item.subject || t('ux.noSubject') })"
                            @click.stop></el-checkbox>
-              <div @click.stop="starChange(item)" class="pc-star" v-if="showStar">
-                <Icon v-if="item.isStar" icon="fluent-color:star-16" width="20" height="20"/>
-                <Icon v-else icon="solar:star-line-duotone" width="18" height="18"/>
-              </div>
+              <IconButton @click.stop="starChange(item)" action="star" class="pc-star" v-if="showStar" :label="t(item.isStar ? 'ux.unstarMail' : 'ux.starMail')" :aria-pressed="!!item.isStar" :loading="starRequests.has(item.emailId)" :disabled="(!item.isStar && !allowStar) || refreshing" />
               <div v-if="!showStar"></div>
               <div class="title" :class="accountShow ? 'title-column' : 'title-column'">
 
@@ -86,9 +97,6 @@
                       <div class="unread" v-if="isMobile && (item.unread === EmailUnreadEnum.UNREAD && showUnread) "/>
                       <slot name="name" :email="item"> {{ item.name }}</slot>
                     </span>
-                    <span>
-                      <Icon v-if="item.isStar" icon="fluent-color:star-16" width="18" height="18"/>
-                    </span>
                   </span>
                   <span class="phone-time">{{ item.formatCreateTime }}</span>
                 </div>
@@ -96,12 +104,12 @@
                   <div class="email-text">
                     <span class="email-subject" :style="(item.unread === EmailUnreadEnum.UNREAD && showUnread)  ? 'font-weight: bold' : ''">
                       <div class="unread" v-if="!isMobile && (item.unread === EmailUnreadEnum.UNREAD && showUnread) "/>
-                      <span v-if="item.code" class="code-tag" @click.stop="copyCode(item.code)">[{{ t('codeLabel') }}{{ item.code }}]</span>
-                      <span class="subject-text">
+                      <button type="button" v-if="item.code" class="code-tag" :aria-label="t('copyCode')" @click.stop="copyCode(item.code)">[{{ t('codeLabel') }}{{ item.code }}]</button>
+                      <button class="subject-text mail-open" type="button" :aria-label="t('ux.openMail', { sender: item.name || item.sendEmail || '', subject: item.subject || t('ux.noSubject') })" @click.stop="jumpDetails(item)">
                         <slot name="subject" :email="item" >
-                          {{ item.subject || '\u200B' }}
+                          {{ item.subject || t('ux.noSubject') }}
                         </slot>
-                      </span>
+                      </button>
                     </span>
                     <span class="email-content">{{ item.text || '\u200B' }}</span>
                   </div>
@@ -126,7 +134,7 @@
               </div>
             </div>
             <skeletonBlock v-else-if="item.expand === 'loading'"
-                           :rows="1"
+                           :rows="1" :dense="dense"
                            :showStar="showStar"
                            :accountShow="accountShow"
                            :showStatus="showStatus"
@@ -153,9 +161,11 @@
                        :showStatus="showStatus"
                        :showUserInfo="showUserInfo"
                        :type="type"/>
-      <div class="empty" v-if="noLoading && emailList.length === 0 && !loading">
+      <div class="empty" v-if="noLoading && emailList.length === 0 && !loading && !listError">
         <Icon class="empty-icon" icon="mdi:email-open-outline" width="44" height="44"/>
-        <div class="empty-text">{{ $t('noMessagesFound') }}</div>
+        <div class="empty-text">{{ t(emptyMessage || emptyKey) }}</div>
+        <p>{{ t(emptyHint || 'ux.emptyRefreshHint') }}</p>
+        <slot name="empty-action"><button type="button" @click="refresh">{{ t('ux.refreshMail') }}</button></slot>
       </div>
     </div>
     <el-dropdown
@@ -253,12 +263,12 @@
 <script setup>
 import {ElMessage, ElMessageBox} from 'element-plus';
 import {Icon} from "@iconify/vue";
+import IconButton from "@/components/icon-button/index.vue";
 import skeletonBlock from "@/components/email-scroll/skeleton/index.vue"
 import {computed, onActivated, reactive, ref, watch, nextTick, onMounted, onUnmounted, onDeactivated } from "vue";
 import {isCanceled, useEmailStore} from "@/store/email.js";
 import {useUiStore} from "@/store/ui.js";
 import {useSettingStore} from "@/store/setting.js";
-import {sleep} from "@/utils/time-utils.js"
 import {fromNow} from "@/utils/day.js";
 import {useI18n} from "vue-i18n";
 import {EmailUnreadEnum} from "@/enums/email-enum.js";
@@ -267,6 +277,8 @@ import { useScroll } from '@vueuse/core'
 
 const props = defineProps({
   getEmailList: Function,
+  emptyMessage: String,
+  emptyHint: String,
   emailDelete: Function,
   emailRead: Function,
   starAdd: Function,
@@ -321,6 +333,13 @@ const settingStore = useSettingStore()
 const uiStore = useUiStore();
 const emailStore = useEmailStore();
 const loading = ref(false);
+const refreshing = ref(false)
+const batchAction = ref(''), batchError = ref(false), starError = ref(false)
+let retryBatch = null
+const container = ref(null)
+let resizeObserver = null
+let contextTrigger = null
+const emptyKey = computed(() => ({ email: 'ux.emptyInbox', star: 'ux.emptyStar', send: 'ux.emptySent', draft: 'ux.emptyDraft' }[props.type] || 'noMessagesFound'))
 const followLoading = ref(false);
 const noLoading = ref(false);
 const emailList = reactive([])
@@ -345,7 +364,7 @@ const listError = ref(false)
 const actionLoading = ref(false)
 const actionError = ref(false)
 let retryAction = null
-let isMobile = ref(innerWidth < 1367)
+const isMobile = ref(true)
 let skeletonRows = 0
 const timePaddingRight = ref('');
 const keyCount = ref(0);
@@ -354,7 +373,7 @@ const dropdownCloseLock = ref(false);
 const dropdownShow = ref(false);
 const rightClickEmail = ref({});
 const MAX_SELECT_COUNT = 95;
-const checkedEmailCount = ref(0);
+const checkedEmailCount = computed(() => emailList.filter(item => item.checked).length);
 const isSelectMax = computed(() => checkedEmailCount.value >= MAX_SELECT_COUNT);
 let timer = null
 const position = ref(
@@ -386,7 +405,10 @@ defineExpose({
   firstLoad,
   latestEmail,
   noLoading,
-  total
+  total,
+  loading,
+  refreshing,
+  listError
 })
 
 function startEffects() {
@@ -398,10 +420,20 @@ function startEffects() {
   document.addEventListener('keydown', onEscClose)
   window.addEventListener('wheel', onWheel)
   window.addEventListener('resize', onResize)
+  if (!resizeObserver && typeof ResizeObserver !== 'undefined') {
+    resizeObserver = new ResizeObserver(entries => { const width = entries[0]?.contentRect.width; if (width > 0) isMobile.value = width < 960 })
+    if (container.value) resizeObserver.observe(container.value)
+  }
+  onResize()
   if (wasInactive && needsRefresh) { needsRefresh = false; refreshList() }
 }
 function stopEffects() {
   active = false
+  resizeObserver?.disconnect()
+  resizeObserver = null
+  refreshing.value = false
+  batchAction.value = ''
+  batchError.value = false
   actionId++
   actionLoading.value = false
   actionError.value = false
@@ -427,7 +459,7 @@ function onEscClose(e) {
   if (e.key === 'Escape' && dropdownShow.value) dropdownRef.value?.handleClose()
 }
 function onWheel() { if (dropdownShow.value) dropdownRef.value?.handleClose() }
-function onResize() { isMobile.value = innerWidth < 1367 }
+function onResize() { const width = container.value?.getBoundingClientRect().width; if (width > 0) isMobile.value = width < 960 }
 onMounted(startEffects)
 onActivated(() => {
   startEffects()
@@ -440,6 +472,11 @@ watch(() => emailStore.generation, () => {
   requestController?.abort()
   reqLock = false
   loading.value = false
+  refreshing.value = false
+  batchAction.value = ''
+  batchError.value = false
+  starError.value = false
+  retryBatch = null
   followLoading.value = false
   emailList.length = 0
   latestEmail.value = null
@@ -467,7 +504,7 @@ const list = computed(() => {
   return [...emailList, ...expandList]
 })
 
-/* 列表密度：紧凑/舒适两档（默认主题），localStorage 记忆 */
+/* Both themes share the stored density preference. */
 const dense = ref(localStorage.getItem('email-dense') === '1')
 
 function toggleDense() {
@@ -475,18 +512,9 @@ function toggleDense() {
   localStorage.setItem('email-dense', dense.value ? '1' : '0')
 }
 
-const itemHeight = computed(() => {
-    /* Win95 主题桌面端：紧凑单行列表（与 style-win95.css 的行高保持一致） */
-    if (uiStore.win95 && !isMobile.value) {
-      return 26;
-    }
-    /* 默认主题支持 紧凑/舒适 两档密度（工具栏行高图标切换，localStorage 记忆） */
-    if (props.type === 'all-email') {
-      return isMobile.value ? (dense.value ? 104 : 132) : (dense.value ? 52 : 65);
-    } else  {
-      return isMobile.value ? (dense.value ? 64 : 83) : (dense.value ? 36 : 48);
-    }
-})
+const itemHeight = computed(() => props.type === 'all-email'
+  ? (isMobile.value ? (dense.value ? 120 : 144) : (dense.value ? 64 : 76))
+  : (isMobile.value ? (dense.value ? 72 : 88) : (dense.value ? 40 : 52)))
 
 watch(emailList, () => {
   updateHasScrollbar();
@@ -497,8 +525,11 @@ watch(scrollbarRef, () => {
 })
 
 // 强制刷新 (itemHeight 更改后虚拟滚动列表不会自己更新)
-watch(itemHeight, () => {
+watch(itemHeight, async (_, before) => {
+  const firstVisible = Math.floor(scrollTop / before)
   keyCount.value ++
+  await nextTick()
+  if (active) scrollbarRef.value?.scrollTo(firstVisible)
 })
 
 watch(followLoading, (isFollowLoading) => {
@@ -536,10 +567,7 @@ watch(() => arrivedState.bottom, (isBottom) => {
 watch(
     () => emailList.map(item => item.checked),
     () => {
-      checkedEmailCount.value = emailList.length
-      if (emailList.length > 0) {
-        updateCheckStatus();
-      }
+      updateCheckStatus();
     },
     {deep: true}
 );
@@ -596,6 +624,7 @@ function visibleChange(e) {
     dropdownCloseLock.value = false;
   },1500)
 
+  if (!e) contextTrigger?.focus?.()
   if (!e && rightClickEmail.value.rightChecked) {
     rightClickEmail.value.rightChecked = false
   }
@@ -611,6 +640,7 @@ const handleContextmenu = (event, email) => {
     rightClickEmail.value.rightChecked = false
   }
 
+  contextTrigger = event.currentTarget
   const { clientX, clientY } = event
   position.value = DOMRect.fromRect({
     x: clientX,
@@ -646,11 +676,12 @@ const accountShow = computed(() => {
   return uiStore.accountShow && settingStore.settings.manyEmail === 0
 })
 
-const starRequests = new Set()
+const starRequests = reactive(new Set())
 async function starChange(email) {
   const id = email.emailId, before = email.isStar || 0, after = before ? 0 : 1
-  if (starRequests.has(id) || (after && !props.allowStar)) return
+  if (refreshing.value || starRequests.has(id) || (after && !props.allowStar)) return
   const mutation = emailStore.beginStarMutation(id)
+  starError.value = false
   starRequests.add(id)
   email.isStar = after
   emailStore.updateEmail(id, { isStar: after })
@@ -662,6 +693,7 @@ async function starChange(email) {
     else props.cancelSuccess?.(email)
   } catch (error) {
     if (emailStore.isCurrentStarMutation(mutation)) {
+      starError.value = true
       email.isStar = before
       emailStore.updateEmail(id, { isStar: before })
     }
@@ -678,13 +710,20 @@ function changeAccountShow() {
 const handleRead = () => markRead(getSelectedMailsIds())
 function emailRead(emailId) { return markRead([emailId]) }
 async function markRead(ids) {
+  if (refreshing.value || batchAction.value || !ids.length) return
   const epoch = emailStore.syncSession()
+  batchAction.value = 'read'
+  batchError.value = false
+  retryBatch = () => markRead(ids)
   try {
     await props.emailRead(ids)
     if (epoch !== emailStore.syncSession()) return
     localRead(ids)
     ids.forEach(id => emailStore.markListRead(id))
-  } catch {}
+    retryBatch = null
+  } catch (error) {
+    if (active && epoch === emailStore.syncSession() && !isCanceled(error)) batchError.value = true
+  } finally { if (epoch === emailStore.syncSession()) batchAction.value = '' }
 }
 
 function localRead(emailIds) {
@@ -698,7 +737,11 @@ function localRead(emailIds) {
 }
 
 async function removeEmails(ids, confirm = false) {
+  if (refreshing.value || batchAction.value || !ids.length) return
   const epoch = emailStore.syncSession()
+  batchAction.value = 'delete'
+  batchError.value = false
+  retryBatch = () => removeEmails(ids, confirm)
   try {
     if (confirm) await ElMessageBox.confirm(t('delEmailsConfirm'), {
       confirmButtonText: t('confirm'), cancelButtonText: t('cancel'), type: 'warning'
@@ -708,8 +751,11 @@ async function removeEmails(ids, confirm = false) {
     if (epoch !== emailStore.syncSession()) return
     emailStore.invalidateDetail(ids)
     emailStore.deleteIds = ids
+    retryBatch = null
     ElMessage({ message: t('delSuccessMsg'), type: 'success', plain: true })
-  } catch {}
+  } catch (error) {
+    if (active && epoch === emailStore.syncSession() && error !== 'cancel' && error !== 'close' && !isCanceled(error)) batchError.value = true
+  } finally { if (epoch === emailStore.syncSession()) batchAction.value = '' }
 }
 function rightDelete(emailId) { return removeEmails([emailId], props.type === 'all-email') }
 
@@ -748,14 +794,19 @@ async function handleDelete() {
 
 function deleteEmail(emailIds) {
   emailStore.invalidateDetail(emailIds)
-  emailIds.forEach(emailId => {
-    emailList.forEach((item, index) => {
-      if (emailId === item.emailId) {
-        emailList.splice(index, 1);
-      }
-    })
-  })
-  if (emailList.length < queryParam.size && !noLoading.value) {
+  const deleted = new Set(emailIds)
+  const removed = new Set()
+  for (let index = emailList.length - 1; index >= 0; index--) {
+    const id = emailList[index].emailId
+    if (deleted.has(id)) {
+      removed.add(id)
+      emailList.splice(index, 1)
+    }
+  }
+  // Other lists share deletion events. Only decrement for known matches here;
+  // repeated events and unloaded ids do not establish another removed result.
+  total.value = Math.max(0, total.value - removed.size)
+  if (removed.size && emailList.length < queryParam.size && !noLoading.value) {
     getEmailList()
   }
 }
@@ -833,10 +884,17 @@ function getSelectedDraftsIds() {
 
 function updateCheckStatus() {
   const checkedCount = emailList.filter(item => item.checked).length;
-  checkedEmailCount.value = checkedCount;
+
   const atMax = checkedCount >= MAX_SELECT_COUNT;
   checkAll.value = emailList.length > 0 && (checkedCount === emailList.length || atMax);
   isIndeterminate.value = checkedCount > 0 && !checkAll.value;
+}
+
+function handleRowKey(event, email) {
+  if (event.key === 'ContextMenu' || (event.shiftKey && event.key === 'F10')) {
+    const rect = event.currentTarget.getBoundingClientRect()
+    handleContextmenu({ currentTarget: event.target, clientX: rect.left, clientY: rect.bottom, preventDefault: () => event.preventDefault() }, email)
+  }
 }
 
 function jumpDetails(email) {
@@ -860,7 +918,7 @@ function jumpDetails(email) {
 }
 
 
-async function getEmailList(refresh = false) {
+async function getEmailList(refresh = false, clear = false) {
   if (!active) { needsRefresh = true; return }
   if (!refresh && (reqLock || noLoading.value)) return
   if (refresh) requestController?.abort()
@@ -874,27 +932,28 @@ async function getEmailList(refresh = false) {
   listError.value = false
   getSkeletonRows()
   if (refresh) {
-    emailList.length = 0
-    latestEmail.value = null
+    if (clear) { emailList.length = 0; total.value = 0; latestEmail.value = null }
     noLoading.value = false
     scrollTop = 0
   }
-  loading.value = refresh || !emailList.length
-  followLoading.value = !loading.value
+  loading.value = !emailList.length
+  refreshing.value = refresh && !!emailList.length
+  followLoading.value = !loading.value && !refresh
   try {
     const data = await props.getEmailList(emailId, queryParam.size, { signal: controller.signal })
     if (!valid()) return
     const items = data.list.map(item => ({ ...item, checked: false }))
     handleList(items)
-    emailList.push(...items)
+    if (refresh) emailList.splice(0, emailList.length, ...items)
+    else emailList.push(...items)
     latestEmail.value = data.latestEmail
     noLoading.value = items.length < queryParam.size
     if (data.total != null) total.value = data.total
     firstLoad.value = false
   } catch (error) {
-    if (valid() && !isCanceled(error)) { listError.value = true; firstLoad.value = false }
+    if (valid() && !isCanceled(error)) { listError.value = [401, 403].includes(error?.code) ? 'forbidden' : 'network'; firstLoad.value = false }
   } finally {
-    if (valid()) { loading.value = false; followLoading.value = false; reqLock = false }
+    if (valid()) { loading.value = false; refreshing.value = false; followLoading.value = false; reqLock = false }
   }
 }
 
@@ -925,13 +984,24 @@ function refresh() {
   if (props.skeleton) {
     scrollbarRef.value.setScrollTop(0)
   }
-  refreshList()
+  refreshList(props.type === 'all-email')
 }
 
-function refreshList() {
-  checkAll.value = false;
-  isIndeterminate.value = false;
-  return getEmailList(true);
+function refreshList(clear = true) {
+  if (clear) {
+    checkAll.value = false;
+    isIndeterminate.value = false;
+    actionId++
+    actionLoading.value = false
+    actionError.value = false
+    retryAction = null
+    dropdownRef.value?.handleClose()
+    rightClickEmail.value = {}
+    starError.value = false
+    batchError.value = false
+    retryBatch = null
+  }
+  return getEmailList(true, clear);
 }
 
 function loadData() {
@@ -942,8 +1012,10 @@ function loadData() {
 <style lang="scss" scoped>
 
 .email-container {
+  min-width: 0;
   display: grid;
-  grid-template-rows: auto 1fr;
+  grid-template-rows: auto minmax(0, 1fr);
+  container: mail-list / inline-size;
   padding: 0;
   font-size: 14px;
   color: var(--el-text-color-primary);
@@ -1010,20 +1082,6 @@ function loadData() {
   }
 }
 
-/* 紧凑密度（默认主题）：与 itemHeight 保持一致，骨架屏同步 */
-:deep(.email-row.dense) {
-  height: 36px;
-  &.all-email {
-    height: 52px;
-  }
-  @media (max-width: 1366px) {
-    height: 64px;
-    &.all-email {
-      height: 104px;
-    }
-  }
-}
-
 .empty-icon {
   color: var(--secondary-text-color);
 }
@@ -1043,20 +1101,10 @@ function loadData() {
   align-items: center;
   position: relative;
   transition: background 0.15s ease-in-out, box-shadow 0.15s ease-in-out;
-  height: 48px;
-  @media (max-width: 1366px) {
-    height: 83px;
-  }
 
   @media (pointer: coarse) {
     /* 触屏 */
     user-select: none;
-  }
-  &.all-email {
-    height: 65px;
-    @media (max-width: 1366px) {
-      height: 132px;
-    }
   }
   .user-info {
     display: flex;
@@ -1065,7 +1113,7 @@ function loadData() {
     margin-top: 5px;
     margin-bottom: 2px;
     color: var(--email-scroll-content-color);
-    @media (max-width: 1366px) {
+    @container mail-list (max-width: 959px) {
       flex-direction: column;
     }
 
@@ -1106,7 +1154,7 @@ function loadData() {
     padding-left: 15px;
     padding-right: 20px;
     justify-content: center;
-    @media (min-width: 1367px) {
+    @container mail-list (min-width: 960px) {
       justify-content: start;
       height: 100%;
       align-self: start;
@@ -1115,7 +1163,7 @@ function loadData() {
   }
 
   .title-column {
-    @media (max-width: 1366px) {
+    @container mail-list (max-width: 959px) {
       grid-template-columns: 1fr !important;
       gap: 4px !important;
     }
@@ -1125,10 +1173,10 @@ function loadData() {
     flex: 1;
     display: grid;
     grid-template-columns: 240px 1fr;
-    @media (max-width: 1366px) {
+    @container mail-list (max-width: 959px) {
       padding-right: 15px;
     }
-    @media (max-width: 1366px) {
+    @container mail-list (max-width: 959px) {
       grid-template-columns: 1fr;
       gap: 4px;
     }
@@ -1142,7 +1190,7 @@ function loadData() {
         display: flex;
         flex-direction: column;
         align-content: center;
-        @media (max-width: 1366px) {
+        @container mail-list (max-width: 959px) {
           flex-direction: row;
           gap: 5px;
         }
@@ -1158,7 +1206,7 @@ function loadData() {
           align-items: center;
         }
 
-        @media (min-width: 1366px) {
+        @container mail-list (min-width: 960px) {
           grid-template-columns: 1fr;
           > span:last-child {
             display: none;
@@ -1183,7 +1231,7 @@ function loadData() {
       .phone-time {
         font-weight: normal;
         font-size: 12px;
-        @media (min-width: 1367px) {
+        @container mail-list (min-width: 960px) {
           display: none;
         }
       }
@@ -1193,7 +1241,7 @@ function loadData() {
       .text-skeleton-one {
         width: 80%;
         height: 16px;
-        @media (max-width: 1366px) {
+        @container mail-list (max-width: 959px) {
           width: 40%;
         }
         @media (max-width: 767px) {
@@ -1204,10 +1252,10 @@ function loadData() {
       .text-skeleton-two {
         width: min(300px, 100%);
         height: 16px;
-        @media (min-width: 1367px) {
+        @container mail-list (min-width: 960px) {
           display: none;
         }
-        @media (max-width: 1366px) {
+        @container mail-list (max-width: 959px) {
           width: 100%;
         }
       }
@@ -1216,7 +1264,7 @@ function loadData() {
     .email-text {
       display: grid;
       grid-template-columns: auto 1fr;
-      @media (max-width: 1366px) {
+      @container mail-list (max-width: 959px) {
         grid-template-columns: 1fr;
       }
 
@@ -1227,7 +1275,7 @@ function loadData() {
         overflow: hidden;
         white-space: nowrap;
         min-width: 0;
-        @media (min-width: 1367px) {
+        @container mail-list (min-width: 960px) {
           padding-left: 5px;
         }
       }
@@ -1258,7 +1306,7 @@ function loadData() {
         text-overflow: ellipsis;
         padding-left: 10px;
         color: var(--email-scroll-content-color);
-        @media (max-width: 1366px) {
+        @container mail-list (max-width: 959px) {
           padding-left: 0;
           margin-top: 0;
         }
@@ -1274,13 +1322,13 @@ function loadData() {
     display: flex;
     padding-left: 15px;
     align-items: center;
-    @media (max-width: 1366px) {
+    @container mail-list (max-width: 959px) {
       display: none;
     }
   }
 
   .email-right-skeleton {
-    @media (max-width: 1366px) {
+    @container mail-list (max-width: 959px) {
       display: none;
     }
   }
@@ -1310,9 +1358,9 @@ function loadData() {
   width: 40px;
 }
 
-@media (max-width: 1366px) {
+@container mail-list (max-width: 959px) {
   .pc-star {
-    display: none;
+    display: flex;
   }
   .phone-star {
     display: block;
@@ -1337,8 +1385,8 @@ function loadData() {
   display: grid;
   grid-template-columns: auto 1fr auto;
   align-items: center;
-  gap: 15px;
-  padding: 3px 15px;
+  gap: 8px;
+  padding: 3px 12px;
   box-shadow: var(--header-actions-border);
 
   .header-left {
@@ -1346,7 +1394,7 @@ function loadData() {
     flex-wrap: wrap;
     align-items: center;
     position: relative;
-    column-gap: 20px;
+    column-gap: 6px;
     row-gap: 8px;
     padding-left: 2px;
     color: var(--el-text-color-primary);;
@@ -1422,4 +1470,47 @@ ul {
   margin: 0;
 }
 
+
+/* One measured row height drives both rendering and virtualization in all themes. */
+.email-container :deep(.email-row) {
+  height: var(--mail-row-height);
+  min-height: var(--mail-row-height);
+  box-sizing: border-box;
+  padding-block: 4px;
+  font-size: 14px;
+  .title, .title > div, .email-sender, .name { min-width: 0; }
+  .title { grid-template-columns: minmax(130px, 190px) minmax(0, 1fr); }
+  .email-text { grid-template-columns: minmax(0, auto) minmax(0, 1fr); }
+  .pc-star { width: 32px; flex: 0 0 32px; margin-right: 8px; }
+  .code-tag { border: 0; background: transparent; padding: 0; font: inherit; }
+  .mail-open { border: 0; background: transparent; color: inherit; padding: 0; text-align: left; font: inherit; cursor: pointer; }
+  .name { grid-template-columns: minmax(0, 1fr); }
+  .name > span { display: block !important; }
+}
+.mail-narrow :deep(.email-row) {
+  .title { grid-template-columns: minmax(0, 1fr); gap: 2px; padding-right: 12px; }
+  .email-text { grid-template-columns: minmax(0, 1fr); }
+  .checkbox, .all-email-checkbox { padding: 0 8px 0 12px; }
+  .name > span:last-child { display: none; }
+}
+.scroll { display: flex; flex-direction: column; min-height: 0; }
+.scroll .virtual { flex: 1; min-height: 0; height: auto !important; }
+.scroll .empty { padding: 20px; box-sizing: border-box; text-align: center; }
+.scroll .empty p { color: var(--secondary-text-color); margin: 8px 0; }
+.selection-status, .feedback { padding: 8px 12px; font-size: 14px; overflow-wrap: anywhere; }
+.selection-status { display: flex; flex-wrap: wrap; gap: 4px 12px; }
+.selection-status span { color: var(--secondary-text-color); }
+.feedback button, .empty button { font: inherit; cursor: pointer; min-height: 32px; }
+.noLoading { height: var(--mail-row-height); box-sizing: border-box; }
+.header-actions .header-right { display: flex; align-items: center; flex-wrap: wrap; justify-content: end; gap: 6px; }
+.header-actions .header-right .email-count { margin: 0; }
+.w95-list-head .h-cc { width: 90px; }
+.w95-list-head .h-sender { width: 190px; }
+@container mail-list (max-width: 479px) {
+  .header-actions .header-right .email-count { display: none; }
+  .header-actions { padding-inline: 10px; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .email-container :deep(.email-row) { transition: none; }
+}
 </style>

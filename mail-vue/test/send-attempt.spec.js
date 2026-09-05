@@ -14,3 +14,21 @@ it('reuses the requestId for unchanged failed sends, rotating for edits and new 
   expect(attempt.prepare(form).requestId).not.toBe(first.requestId)
   expect(form.requestId).toBeUndefined()
 })
+
+it('restores an uncertain send after reload without creating a duplicate attempt', () => {
+  const first = createSendAttempt().prepare({ subject: 'Hello', attachments: [] })
+  const restored = createSendAttempt()
+  restored.restore(first)
+  expect(restored.prepare(first).requestId).toBe(first.requestId)
+  expect(restored.prepare({ ...first, subject: 'Edited' }).requestId).not.toBe(first.requestId)
+})
+
+it('keeps draft metadata out of the submitted payload and unchanged retry identity', () => {
+  const attempt = createSendAttempt()
+  const first = attempt.prepare({ accountId: 1, subject: 'Mail', content: 'body', attachments: [], draftId: null })
+  const restored = createSendAttempt()
+  const draft = { ...first, draftId: 42, createTime: '2026-09-06', checked: true, formatCreateTime: 'today' }
+  restored.restore(draft)
+  expect(restored.prepare(draft)).toEqual(first)
+  expect(first).not.toHaveProperty('draftId')
+})

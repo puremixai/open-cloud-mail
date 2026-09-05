@@ -1,23 +1,22 @@
 <template>
-  <div id="login-box" :style=" background ? 'background: var(--el-bg-color)' : ''" v-loading="oauthLoading" element-loading-text="登录中...">
+  <div id="login-box" :style=" background ? 'background: var(--el-bg-color)' : ''" v-loading="oauthLoading" :element-loading-text="$t('ux.signingIn')">
     <div v-if="settingStore.settings.background" class="background-layer" :style="background"></div>
-    <MailLoader v-if="introShow" @done="introShow = false" />
     <div class="form-wrapper">
       <div class="container">
         <span class="form-title" v-if="settingStore.settings.title">{{ settingStore.settings.title }}</span>
         <span class="form-desc" v-if="show === 'login'">{{ $t('loginTitle') }}</span>
         <span class="form-desc" v-else>{{ $t('regTitle') }}</span>
         <div v-show="show === 'login'">
-          <el-input :class="!hideLoginDomain ? 'email-input' : ''" v-model="form.email"
-                    type="text" :placeholder="$t('emailAccount')" autocomplete="off" @keyup.enter="submit">
+          <label class="field-label" for="login-email">{{ $t('emailAccount') }}</label>
+          <el-input :aria-invalid="!!fieldErrors['login-email']" :aria-describedby="fieldErrors['login-email'] ? 'login-email-error' : undefined" @input="delete fieldErrors['login-email']" id="login-email" name="login-email" :class="!hideLoginDomain ? 'email-input' : ''" v-model="form.email"
+                    type="text" :placeholder="$t('emailAccount')" autocomplete="username" @keyup.enter="submit">
             <template #append v-if="!hideLoginDomain">
-              <div @click.stop="openSelect">
-                <el-select
+              <el-select
                     v-if="show === 'login'"
                     ref="mySelect"
                     v-model="suffix"
                     :placeholder="$t('select')"
-                    class="select"
+                    class="select" :aria-label="$t('ux.domain')"
                 >
                   <el-option
                       v-for="item in domainList"
@@ -26,15 +25,14 @@
                       :value="item"
                   />
                 </el-select>
-                <div style="color: var(--el-text-color-primary)">
-                  <span>{{ suffix }}</span>
-                  <Icon class="setting-icon" icon="mingcute:down-small-fill" width="20" height="20"/>
-                </div>
-              </div>
             </template>
           </el-input>
-          <el-input v-model="form.password" :placeholder="$t('password')" type="password" autocomplete="off" @keyup.enter="submit">
+          <p v-if="fieldErrors['login-email']" id="login-email-error" class="field-error" role="alert">{{ fieldErrors['login-email'] }}</p>
+          <p v-if="form.email" class="email-preview">{{ $t('ux.fullEmail', { email: getFullEmail(form.email) }) }}</p>
+          <label class="field-label" for="login-password">{{ $t('password') }}</label>
+          <el-input :aria-invalid="!!fieldErrors['login-password']" :aria-describedby="fieldErrors['login-password'] ? 'login-password-error' : undefined" @input="delete fieldErrors['login-password']" id="login-password" name="login-password" v-model="form.password" :placeholder="$t('password')" type="password" show-password autocomplete="current-password" @keyup.enter="submit">
           </el-input>
+          <p v-if="fieldErrors['login-password']" id="login-password-error" class="field-error" role="alert">{{ fieldErrors['login-password'] }}</p>
           <el-button class="btn" type="primary" @click="submit" :loading="loginLoading"
           >{{ $t('loginBtn') }}
           </el-button>
@@ -45,16 +43,16 @@
           </el-button>
         </div>
         <div v-show="show !== 'login'">
-          <el-input :class="!hideLoginDomain ? 'email-input' : ''" v-model="registerForm.email" type="text" :placeholder="$t('emailAccount')"
-                    autocomplete="off" @keyup.enter="submitRegister">
+          <label class="field-label" for="register-email">{{ $t('emailAccount') }}</label>
+          <el-input :aria-invalid="!!fieldErrors['register-email']" :aria-describedby="fieldErrors['register-email'] ? 'register-email-error' : undefined" @input="delete fieldErrors['register-email']" id="register-email" name="register-email" :class="!hideLoginDomain ? 'email-input' : ''" v-model="registerForm.email" type="text" :placeholder="$t('emailAccount')"
+                    autocomplete="username" @keyup.enter="submitRegister">
             <template #append v-if="!hideLoginDomain">
-              <div @click.stop="openSelect">
-                <el-select
+              <el-select
                     v-if="show !== 'login'"
                     ref="mySelect"
                     v-model="suffix"
                     :placeholder="$t('select')"
-                    class="select"
+                    class="select" :aria-label="$t('ux.domain')"
                 >
                   <el-option
                       v-for="item in domainList"
@@ -63,20 +61,25 @@
                       :value="item"
                   />
                 </el-select>
-                <div>
-                  <span>{{ suffix }}</span>
-                  <Icon class="setting-icon" icon="mingcute:down-small-fill" width="20" height="20"/>
-                </div>
-              </div>
             </template>
           </el-input>
-          <el-input v-model="registerForm.password" :placeholder="$t('password')" type="password" autocomplete="off" @keyup.enter="submitRegister"/>
-          <el-input v-model="registerForm.confirmPassword" :placeholder="$t('confirmPwd')" type="password"
-                    autocomplete="off" @keyup.enter="submitRegister"/>
-          <el-input v-if="settingStore.settings.regKey === 0" v-model="registerForm.code" :placeholder="$t('regKey')"
+          <p v-if="fieldErrors['register-email']" id="register-email-error" class="field-error" role="alert">{{ fieldErrors['register-email'] }}</p>
+          <p v-if="registerForm.email" class="email-preview">{{ $t('ux.fullEmail', { email: getFullEmail(registerForm.email) }) }}</p>
+          <label class="field-label" for="register-password">{{ $t('password') }}</label>
+          <el-input :aria-invalid="!!fieldErrors['register-password']" :aria-describedby="fieldErrors['register-password'] ? 'register-password-error' : undefined" @input="delete fieldErrors['register-password']" id="register-password" name="register-password" v-model="registerForm.password" :placeholder="$t('password')" type="password" show-password autocomplete="new-password" @keyup.enter="submitRegister"/>
+          <p v-if="fieldErrors['register-password']" id="register-password-error" class="field-error" role="alert">{{ fieldErrors['register-password'] }}</p>
+          <label class="field-label" for="register-confirm">{{ $t('confirmPwd') }}</label>
+          <el-input :aria-invalid="!!fieldErrors['register-confirm']" :aria-describedby="fieldErrors['register-confirm'] ? 'register-confirm-error' : undefined" @input="delete fieldErrors['register-confirm']" id="register-confirm" name="register-confirm" v-model="registerForm.confirmPassword" :placeholder="$t('confirmPwd')" type="password" show-password
+                    autocomplete="new-password" @keyup.enter="submitRegister"/>
+          <p v-if="fieldErrors['register-confirm']" id="register-confirm-error" class="field-error" role="alert">{{ fieldErrors['register-confirm'] }}</p>
+          <label v-if="settingStore.settings.regKey === 0" class="field-label" for="register-code">{{ $t('regKey') }}</label>
+          <el-input :aria-invalid="!!fieldErrors['register-code']" :aria-describedby="fieldErrors['register-code'] ? 'register-code-error' : undefined" @input="delete fieldErrors['register-code']" id="register-code" v-if="settingStore.settings.regKey === 0" v-model="registerForm.code" :placeholder="$t('regKey')"
                     type="text" autocomplete="off" @keyup.enter="submitRegister"/>
-          <el-input v-if="settingStore.settings.regKey === 2" v-model="registerForm.code"
+          <p v-if="fieldErrors['register-code']" id="register-code-error" class="field-error" role="alert">{{ fieldErrors['register-code'] }}</p>
+          <label v-if="settingStore.settings.regKey === 2" class="field-label" for="register-code-optional">{{ $t('regKeyOptional') }}</label>
+          <el-input :aria-invalid="!!fieldErrors['register-code-optional']" :aria-describedby="fieldErrors['register-code-optional'] ? 'register-code-optional-error' : undefined" @input="delete fieldErrors['register-code-optional']" id="register-code-optional" v-if="settingStore.settings.regKey === 2" v-model="registerForm.code"
                     :placeholder="$t('regKeyOptional')" type="text" autocomplete="off" @keyup.enter="submitRegister"/>
+          <p v-if="fieldErrors['register-code-optional']" id="register-code-optional-error" class="field-error" role="alert">{{ fieldErrors['register-code-optional'] }}</p>
           <div v-show="verifyShow"
                class="register-turnstile"
                :data-sitekey="settingStore.settings.siteKey"
@@ -97,23 +100,23 @@
           </el-button>
         </div>
         <template v-if="settingStore.settings.register === 0">
-          <div class="switch" @click="show = 'register'" v-if="show === 'login'">{{ $t('noAccount') }}
-            <span>{{ $t('regSwitch') }}</span></div>
-          <div class="switch" @click="show = 'login'" v-else>{{ $t('hasAccount') }} <span>{{ $t('loginSwitch') }}</span>
-          </div>
+          <button type="button" class="switch" @click="switchForm('register')" v-if="show === 'login'">{{ $t('noAccount') }}
+            <span>{{ $t('regSwitch') }}</span></button>
+          <button type="button" class="switch" @click="switchForm('login')" v-else>{{ $t('hasAccount') }} <span>{{ $t('loginSwitch') }}</span>
+          </button>
         </template>
       </div>
     </div>
-    <el-dialog class="bind-dialog" v-model="showBindForm"  title="注册邮箱" >
+    <el-dialog class="bind-dialog" v-model="showBindForm"  :title="$t('ux.bindEmail')" >
       <div class="bind-container">
-        <el-input :class="!hideLoginDomain ? 'email-input' : ''" v-model="bindForm.email" type="text" :placeholder="$t('emailAccount')" autocomplete="off" @keyup.enter="bind">
+        <label class="field-label" for="bind-email">{{ $t('emailAccount') }}</label>
+          <el-input :aria-invalid="!!fieldErrors['bind-email']" :aria-describedby="fieldErrors['bind-email'] ? 'bind-email-error' : undefined" @input="delete fieldErrors['bind-email']" id="bind-email" name="bind-email" :class="!hideLoginDomain ? 'email-input' : ''" v-model="bindForm.email" type="text" :placeholder="$t('emailAccount')" autocomplete="username" @keyup.enter="bind">
           <template #append v-if="!hideLoginDomain">
-            <div @click.stop="openSelect">
-              <el-select
+            <el-select
                   ref="mySelect"
                   v-model="suffix"
                   :placeholder="$t('select')"
-                  class="select"
+                  class="select" :aria-label="$t('ux.domain')"
               >
                 <el-option
                     v-for="item in domainList"
@@ -122,18 +125,16 @@
                     :value="item"
                 />
               </el-select>
-              <div>
-                <span>{{ suffix }}</span>
-                <Icon class="setting-icon" icon="mingcute:down-small-fill" width="20" height="20"/>
-              </div>
-            </div>
           </template>
         </el-input>
-        <el-input v-if="bindRegistrationKeyPolicy.visible" v-model="bindForm.code"
+          <p v-if="fieldErrors['bind-email']" id="bind-email-error" class="field-error" role="alert">{{ fieldErrors['bind-email'] }}</p>
+        <label v-if="bindRegistrationKeyPolicy.visible" for="bind-code">{{ $t(bindRegistrationKeyPolicy.required ? 'regKey' : 'regKeyOptional') }}</label>
+        <el-input :aria-invalid="!!fieldErrors['bind-code']" :aria-describedby="fieldErrors['bind-code'] ? 'bind-code-error' : undefined" @input="delete fieldErrors['bind-code']" id="bind-code" v-if="bindRegistrationKeyPolicy.visible" v-model="bindForm.code"
                   :placeholder="$t(bindRegistrationKeyPolicy.required ? 'regKey' : 'regKeyOptional')"
                   type="text" autocomplete="off" @keyup.enter="bind"/>
+          <p v-if="fieldErrors['bind-code']" id="bind-code-error" class="field-error" role="alert">{{ fieldErrors['bind-code'] }}</p>
         <el-button class="btn" type="primary" @click="bind" :loading="bindLoading"
-        >绑定
+        >{{ $t('ux.bind') }}
         </el-button>
       </div>
     </el-dialog>
@@ -153,7 +154,6 @@ import {useAccountStore} from "@/store/account.js";
 import {useUserStore} from "@/store/user.js";
 import {useUiStore} from "@/store/ui.js";
 import {Icon} from "@iconify/vue";
-import MailLoader from "./MailLoader.vue";
 import {cvtR2Url} from "@/utils/convert.js";
 import {loginUserInfo} from "@/request/my.js";
 import {permsToRouter} from "@/perm/perm.js";
@@ -177,8 +177,17 @@ const loginLoading = ref(false)
 const bindLoading = ref(false)
 const oauthLoading = ref(false);
 const showBindForm = ref(false);
+const fieldErrors = reactive({})
+function invalidField(id, message) {
+  fieldErrors[id] = message
+  nextTick(() => document.getElementById(id)?.focus())
+}
 const show = ref('login')
-const introShow = ref(true)
+async function switchForm(value) {
+  show.value = value
+  await nextTick()
+  document.getElementById(value === 'login' ? 'login-email' : 'register-email')?.focus()
+}
 
 const oauthKeys = ['linuxdo', 'github', 'google']
 
@@ -390,21 +399,13 @@ function bind() {
   if (bindLoading.value) return
 
   if (!bindForm.email) {
-    ElMessage({
-      message: t('emptyEmailMsg'),
-      type: 'error',
-      plain: true,
-    })
+    invalidField('bind-email', t('emptyEmailMsg'))
     return
   }
 
 
   if (getEmailName(bindForm.email).length < settingStore.settings.minEmailPrefix) {
-    ElMessage({
-      message: t('minEmailPrefix', {msg: settingStore.settings.minEmailPrefix}),
-      type: 'error',
-      plain: true,
-    })
+    invalidField('bind-email', t('minEmailPrefix', {msg: settingStore.settings.minEmailPrefix}))
     return
   }
 
@@ -412,11 +413,7 @@ function bind() {
 
 
   if (!isEmail(email)) {
-    ElMessage({
-      message: t('notEmailMsg'),
-      type: 'error',
-      plain: true,
-    })
+    invalidField('bind-email', t('notEmailMsg'))
     return
   }
 
@@ -424,11 +421,7 @@ function bind() {
 
     if (!bindForm.code) {
 
-      ElMessage({
-        message: t('emptyRegKeyMsg'),
-        type: 'error',
-        plain: true,
-      })
+      invalidField('bind-code', t('emptyRegKeyMsg'))
       return
     }
 
@@ -457,31 +450,19 @@ const submit = () => {
   if (loginLoading.value) return
 
   if (!form.email) {
-    ElMessage({
-      message: t('emptyEmailMsg'),
-      type: 'error',
-      plain: true,
-    })
+    invalidField('login-email', t('emptyEmailMsg'))
     return
   }
 
   let email = getFullEmail(form.email);
 
   if (!isEmail(email)) {
-    ElMessage({
-      message: t('notEmailMsg'),
-      type: 'error',
-      plain: true,
-    })
+    invalidField('login-email', t('notEmailMsg'))
     return
   }
 
   if (!form.password) {
-    ElMessage({
-      message: t('emptyPwdMsg'),
-      type: 'error',
-      plain: true,
-    })
+    invalidField('login-password', t('emptyPwdMsg'))
     return
   }
 
@@ -531,61 +512,36 @@ function submitRegister() {
   if (registerLoading.value) return
 
   if (!registerForm.email) {
-    ElMessage({
-      message: t('emptyEmailMsg'),
-      type: 'error',
-      plain: true,
-    })
+    invalidField('register-email', t('emptyEmailMsg'))
     return
   }
 
-  console.log(registerForm.email)
 
   if (getEmailName(registerForm.email).length < settingStore.settings.minEmailPrefix) {
-    ElMessage({
-      message: t('minEmailPrefix', {msg: settingStore.settings.minEmailPrefix}),
-      type: 'error',
-      plain: true,
-    })
+    invalidField('register-email', t('minEmailPrefix', {msg: settingStore.settings.minEmailPrefix}))
     return
   }
 
   const email = getFullEmail(registerForm.email);
 
   if (!isEmail(email)) {
-    ElMessage({
-      message: t('notEmailMsg'),
-      type: 'error',
-      plain: true,
-    })
+    invalidField('register-email', t('notEmailMsg'))
     return
   }
 
   if (!registerForm.password) {
-    ElMessage({
-      message: t('emptyPwdMsg'),
-      type: 'error',
-      plain: true,
-    })
+    invalidField('register-password', t('emptyPwdMsg'))
     return
   }
 
   if (registerForm.password.length < 6) {
-    ElMessage({
-      message: t('pwdLengthMsg'),
-      type: 'error',
-      plain: true,
-    })
+    invalidField('register-password', t('pwdLengthMsg'))
     return
   }
 
   if (registerForm.password !== registerForm.confirmPassword) {
 
-    ElMessage({
-      message: t('confirmPwdFailMsg'),
-      type: 'error',
-      plain: true,
-    })
+    invalidField('register-confirm', t('confirmPwdFailMsg'))
     return
   }
 
@@ -593,11 +549,7 @@ function submitRegister() {
 
     if (!registerForm.code) {
 
-      ElMessage({
-        message: t('emptyRegKeyMsg'),
-        type: 'error',
-        plain: true,
-      })
+      invalidField('register-code', t('emptyRegKeyMsg'))
       return
     }
 
@@ -695,10 +647,17 @@ function submitRegister() {
   z-index: 0;
 }
 
+.field-error { margin: -10px 0 16px; color: var(--el-color-danger); font-size: 13px; }
+.field-label { display: block; margin: 0 0 6px; font-weight: 500; }
+.email-preview { margin: -10px 0 16px; color: var(--regular-text-color); overflow-wrap: anywhere; font-size: 12px; }
+.switch { display: block; width: 100%; min-height: 32px; color: var(--el-text-color-primary); cursor: pointer; }
+@media (pointer: coarse) { .container .el-input, .container .btn { min-height: 44px; } .container :deep(.el-input__inner) { font-size: 16px; } }
+
 .form-wrapper {
   position: relative;
   width: 100%;
-  height: 100%;
+  min-height: 100%;
+  padding-block: 24px;
   z-index: 10;
   display: flex;
   align-items: center;
@@ -801,11 +760,15 @@ function submitRegister() {
 
 :deep(.el-input-group__append) {
   padding: 0 !important;
-  padding-left: 8px !important;
-  padding-right: 4px !important;
   background: var(--el-bg-color);
   border-radius: 0 8px 8px 0;
 }
+
+.email-input :deep(.el-input-group__append .el-select) {
+  margin: 0;
+  height: 100%;
+}
+.email-input :deep(.el-select__wrapper) { min-height: 100%; }
 
 :deep(.el-button+.el-button) {
   margin: 0;
@@ -816,12 +779,7 @@ function submitRegister() {
 }
 
 .select {
-  position: absolute;
-  right: 30px;
-  width: 100px;
-  opacity: 0;
-  pointer-events: none;
-  visibility: hidden;
+  width: 132px;
 }
 
 .custom-style {

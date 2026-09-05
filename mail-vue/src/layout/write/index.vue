@@ -1,5 +1,10 @@
 <template>
-  <div class="send" v-show="show">
+  <aside v-if="!show && (recoveries.length || recoveryReadError)" class="compose-recovery" role="status">
+    <span>{{ recoveryReadError ? t('ux.recoveryReadFailed') : t('ux.recoveredMail', { count: recoveries.length }) }}</span>
+    <el-button v-if="recoveryReadError" @click="loadRecoveries">{{ t('ux.restoreRetry') }}</el-button>
+    <el-button v-else @click="restoreLatest">{{ t('ux.restoreLatest') }}</el-button>
+  </aside>
+  <div class="send" v-show="show" role="dialog" aria-modal="true" :aria-label="t('ux.composeTitle')" :aria-busy="sending" ref="composerPanel">
     <div class="write-box">
       <div class="title">
         <div class="title-left">
@@ -10,12 +15,10 @@
           <span class="sender-name">{{ form.name }}</span>
           <span class="send-email"><{{ form.sendEmail }}></span>
         </div>
-        <div @click="close" style="cursor: pointer;">
-          <Icon icon="material-symbols-light:close-rounded" width="22" height="22"/>
-        </div>
+        <IconButton action="close" :label="t('ux.closeCompose')" :disabled="sending || draftBusy" @click="close" />
       </div>
-      <div class="container">
-        <el-input-tag  @add-tag="addTagChange" tag-type="primary" @input="inputChange" size="default" v-model="form.receiveEmail" >
+      <div class="container" :inert="sending || draftBusy || undefined">
+        <el-input-tag :aria-label="t('recipient')" @add-tag="addTagChange" tag-type="primary" @input="inputChange" size="default" v-model="form.receiveEmail" >
           <template #prefix>
             <div class="item-title" >{{ $t('recipient') }}</div>
             <el-select
@@ -39,36 +42,48 @@
           </template>
           <template #suffix>
             <div style="display: flex;margin-right: 3px;">
-              <Icon icon="fa7-solid:user-plus" width="20" height="20" class="add-contact" @click.stop="openContacts" />
+              <IconButton action="contacts" :label="t('recentContacts')" class="add-contact" @click.stop="openContacts" />
             </div>
           </template>
         </el-input-tag>
-        <el-input v-model="form.subject" :placeholder="t('subject')" />
+        <el-input v-model="form.subject" :aria-label="t('subject')" :placeholder="t('subject')" />
         <tinyEditor :def-value="defValue" ref="editor" @change="change" @focus="focusChange" />
         <div class="button-item">
-          <div class="att-add" @click="chooseFile">
-            <Icon icon="iconamoon:attachment-fill" width="24" height="24"/>
-          </div>
-          <div class="att-clear" @click="clearContent">
-            <Icon icon="icon-park-outline:clear-format" width="24" height="24 "/>
-          </div>
+          <IconButton action="attachment" class="att-add" :label="t('ux.attachFiles')" @click="chooseFile" />
+          <IconButton action="clear" class="att-clear" :label="t('ux.clearCompose')" @click="clearContent" />
           <div class="att-list">
             <div class="att-item" v-for="(item,index) in form.attachments" :key="index">
               <Icon v-bind="getIconByName(item.filename)"/>
               <span class="att-filename">{{ item.filename }}</span>
               <span class="att-size">{{ formatBytes(item.size) }}</span>
-              <Icon style="cursor: pointer;" icon="material-symbols-light:close-rounded" @click="delAtt(index)"
-                    width="22" height="22"/>
+              <IconButton action="close" :label="t('ux.removeAttachment', { name: item.filename })" @click="delAtt(index)" />
             </div>
           </div>
           <div>
-            <el-button type="primary" @click="sendEmail" v-if="form.sendType === 'reply'">{{ $t('reply') }}</el-button>
-            <el-button type="primary" @click="sendEmail" v-else-if="form.sendType === 'forward'">{{ $t('forward') }}</el-button>
-            <el-button type="primary" @click="sendEmail" v-else>{{ $t('send') }}</el-button>
+            <el-button type="primary" :loading="sending" :disabled="attachmentReads > 0" @click="sendEmail">{{ form.sendType === 'reply' ? t('reply') : form.sendType === 'forward' ? t('forward') : t('send') }}</el-button>
           </div>
         </div>
       </div>
+      <div class="compose-status" :class="{ 'is-error': saveState === 'error' }" role="status" aria-live="polite">
+        <span v-if="sending">{{ percent > 0 && percent < 98 ? t('ux.sendingUpload', { percent }) : t('ux.sendingSubmit') }} {{ t('ux.sendPendingHelp') }}</span>
+        <template v-else>
+          <span>{{ t(attachmentReads ? 'ux.readingAttachments' : saveState === 'saved' ? 'ux.draftSaved' : saveState === 'saving' ? 'ux.draftSaving' : saveState === 'error' ? 'ux.draftSaveFailed' : 'ux.draftUnsaved') }}</span>
+          <el-button v-if="saveState === 'error'" text @click="saveRecovery">{{ t('ux.retrySave') }}</el-button>
+        </template>
+        <span v-if="uncertainSend && !sending">{{ t('ux.uncertainSend') }}</span>
+      </div>
     </div>
+    <el-dialog v-model="closePrompt" :title="t('ux.closeComposeTitle')" width="min(440px, calc(100vw - 32px))" append-to-body :close-on-click-modal="!draftBusy" :close-on-press-escape="!draftBusy" :show-close="!draftBusy" @closed="focusEditor">
+      <p>{{ t('ux.closeComposeBody') }}</p>
+      <p v-if="saveState === 'error'" role="alert">{{ t('ux.draftSaveFailed') }}</p>
+      <template #footer>
+        <div class="compose-close-actions">
+          <el-button :disabled="draftBusy" @click="continueEditing">{{ t('ux.continueEditing') }}</el-button>
+          <el-button type="danger" plain :disabled="draftBusy" @click="discardAndClose">{{ t('ux.discardChanges') }}</el-button>
+          <el-button type="primary" :loading="draftBusy" :disabled="attachmentReads > 0" @click="saveAndClose">{{ t('ux.saveDraft') }}</el-button>
+        </div>
+      </template>
+    </el-dialog>
     <el-dialog top="10vh" v-model="showContacts" @closed="clearSelectContact" :title="t('recentContacts')">
       <el-table ref="contactsTabRef" row-key="email" :data="contacts" style="height: 445px">
         <el-table-column type="selection" width="32" />
@@ -94,6 +109,8 @@
 </template>
 <script setup>
 import {createSendAttempt} from '@/utils/send-attempt.js'
+import {createComposeRecovery, persistDraft, draftVersion} from '@/utils/compose-recovery.js'
+import IconButton from '@/components/icon-button/index.vue'
 import {endSession} from '@/utils/session.js'
 import tinyEditor from '@/components/tiny-editor/index.vue'
 import {h, nextTick, onMounted, onUnmounted, watch, reactive, ref, toRaw, computed} from "vue";
@@ -135,8 +152,18 @@ const editor = ref({})
 const userStore = useUserStore();
 const show = ref(false);
 const percent = ref(0)
-let percentMessage = null
-let sending = false
+const sending = ref(false)
+const attachmentReads = ref(0)
+const composerPanel = ref(null)
+const closePrompt = ref(false)
+const draftBusy = ref(false)
+const saveState = ref('idle')
+const recoveries = ref([])
+const recoveryReadError = ref(false)
+const uncertainSend = ref(false)
+let recoveryId = crypto.randomUUID()
+let baseDraftVersion = null
+let saveTimer, saveRevision = 0, savedRevision = -1, returnFocus = null
 const defValue = ref('')
 const contactsTabRef = ref({})
 const showContacts = ref(false)
@@ -164,6 +191,131 @@ const form = reactive({
   attachments: [],
   draftId: null,
 })
+
+let activeDatabase = db.value
+let resetting = false
+const hasContent = () => !!(form.subject || form.content || form.receiveEmail.length || form.attachments.length)
+const snapshotForm = () => JSON.parse(JSON.stringify(toRaw(form)))
+
+watch(form, () => {
+  if (resetting || !show.value || draftBusy.value) return
+  saveRevision++
+  saveState.value = 'dirty'
+  clearTimeout(saveTimer)
+  saveTimer = setTimeout(() => void saveRecovery(), 700)
+}, { deep: true, flush: 'sync' })
+watch(show, visible => {
+  if (visible) {
+    returnFocus = document.activeElement
+    activeDatabase = db.value
+    if (hasContent()) { saveRevision++; saveTimer = setTimeout(() => void saveRecovery(), 700) }
+    nextTick(focusEditor)
+  }
+})
+
+async function saveRecovery() {
+  clearTimeout(saveTimer)
+  if (!userStore.user.email) return false
+  if (form.requestId) form.requestId = sendAttempt.prepare(form).requestId
+  const revision = saveRevision, operation = composeGeneration
+  const record = { id: recoveryId, accountId: form.accountId, updatedAt: Date.now(), form: snapshotForm(), backReply: JSON.parse(JSON.stringify(backReply)), uncertainSend: uncertainSend.value, draftVersion: baseDraftVersion }
+  saveState.value = 'saving'
+  try {
+    const recovery = createComposeRecovery(activeDatabase)
+    if (hasContent()) await recovery.save(record)
+    else await recovery.remove(record.id)
+    if (operation === composeGeneration && revision === saveRevision) {
+      savedRevision = revision
+      saveState.value = 'saved'
+    }
+    return true
+  } catch {
+    if (operation === composeGeneration) saveState.value = 'error'
+    return false
+  }
+}
+
+async function loadRecoveries() {
+  if (!userStore.user.email || !db.value.recovery) return
+  const database = db.value, epoch = emailStore.generation
+  const accountId = accountStore.currentAccount.accountId ?? userStore.user.account?.accountId
+  try {
+    const records = await createComposeRecovery(database).list(accountId)
+    if (database !== db.value || epoch !== emailStore.generation) return
+    recoveries.value = records
+    recoveryReadError.value = false
+  } catch {
+    if (database === db.value && epoch === emailStore.generation) recoveryReadError.value = true
+  }
+}
+
+function restoreLatest() {
+  const record = recoveries.value[0]
+  if (!record || show.value) return
+  resetForm()
+  Object.assign(form, record.form)
+  Object.assign(backReply, record.backReply || {})
+  recoveryId = record.id
+  baseDraftVersion = record.draftVersion || null
+  uncertainSend.value = !!record.uncertainSend
+  sendAttempt.restore(form)
+  defValue.value = form.content
+  show.value = true
+  nextTick(() => { savedRevision = saveRevision; saveState.value = 'saved' })
+}
+
+function focusEditor() {
+  if (show.value && !closePrompt.value && !sending.value) editor.value?.focus?.()
+}
+
+function beforeUnload(event) {
+  if (!show.value || (!sending.value && !attachmentReads.value && (!saveRevision || savedRevision === saveRevision))) return
+  event.preventDefault()
+  event.returnValue = ''
+}
+
+function finishClose() {
+  closePrompt.value = false
+  show.value = false
+  resetForm()
+  nextTick(() => { returnFocus?.isConnected && returnFocus.focus?.(); void loadRecoveries() })
+}
+
+function continueEditing() { closePrompt.value = false; nextTick(focusEditor) }
+
+async function saveAndClose() {
+  if (draftBusy.value || sending.value || attachmentReads.value) return
+  draftBusy.value = true
+  clearTimeout(saveTimer)
+  const database = activeDatabase, id = recoveryId, operation = composeGeneration
+  try {
+    if (form.requestId) form.requestId = sendAttempt.prepare(form).requestId
+    const draftId = await persistDraft(database, form)
+    if (operation === composeGeneration) {
+      form.draftId = draftId
+      baseDraftVersion = await createComposeRecovery(database).readDraftVersion(draftId)
+    }
+    await createComposeRecovery(database).remove(id)
+    if (operation !== composeGeneration) return
+    draftStore.refreshList++
+    finishClose()
+  } catch {
+    if (operation === composeGeneration) saveState.value = 'error'
+  } finally { if (operation === composeGeneration || !show.value) draftBusy.value = false }
+}
+
+async function discardAndClose() {
+  if (draftBusy.value || sending.value) return
+  draftBusy.value = true
+  clearTimeout(saveTimer)
+  const operation = composeGeneration
+  try {
+    await createComposeRecovery(activeDatabase).remove(recoveryId)
+    if (operation === composeGeneration) finishClose()
+  } catch {
+    if (operation === composeGeneration) saveState.value = 'error'
+  } finally { if (operation === composeGeneration || !show.value) draftBusy.value = false }
+}
 
 const selectRecipientList = ref([])
 
@@ -261,8 +413,13 @@ function clearContent() {
     confirmButtonText: t('confirm'),
     cancelButtonText: t('cancel'),
     type: 'warning'
-  }).then(() => {
-    resetForm()
+  }).then(async () => {
+    clearTimeout(saveTimer)
+    const operation = composeGeneration
+    await createComposeRecovery(activeDatabase).remove(recoveryId)
+    if (operation === composeGeneration) resetForm()
+  }).catch(error => {
+    if (error !== 'cancel' && error !== 'close') saveState.value = 'error'
   })
 
 }
@@ -272,13 +429,16 @@ function delAtt(index) {
 }
 
 function chooseFile() {
+  const operation = composeGeneration
   const doc = document.createElement("input")
   doc.setAttribute("type", "file")
   doc.multiple = true;
   doc.click()
   doc.onchange = async (e) => {
+    if (operation !== composeGeneration || !show.value) return
 
     const fileList = e.target.files;
+    attachmentReads.value += fileList.length
 
     for (const file of fileList) {
 
@@ -286,8 +446,15 @@ function chooseFile() {
       const filename = file.name
       const contentType = file.type
 
-      const content = await fileToBase64(file)
-      form.attachments.push({content, filename, size, contentType})
+      try {
+        const content = await fileToBase64(file)
+        if (operation !== composeGeneration || !show.value) return
+        form.attachments.push({content, filename, size, contentType})
+      } catch {
+        if (operation === composeGeneration) ElMessage({ message: t('ux.attachmentFailed'), type: 'error' })
+      } finally {
+        if (operation === composeGeneration) attachmentReads.value--
+      }
 
     }
 
@@ -295,6 +462,7 @@ function chooseFile() {
 }
 
 async function sendEmail() {
+  if (attachmentReads.value || draftBusy.value) return
 
   if (form.receiveEmail.length === 0) {
     ElMessage({
@@ -336,7 +504,7 @@ async function sendEmail() {
     return
   }
 
-  if (sending) {
+  if (sending.value) {
     ElMessage({
       message: t('sendingErrorMsg'),
       type: 'error',
@@ -345,7 +513,7 @@ async function sendEmail() {
     return
   }
 
-  percentMessage = ElMessage({
+  const percentMessage = ElMessage({
     message: () => h(sendPercent, {value: percent.value, desc: t('sending')}),
     dangerouslyUseHTMLString: true,
     plain: true,
@@ -353,54 +521,51 @@ async function sendEmail() {
     customClass: 'message-bottom'
   })
 
-  sending = true
-
-  show.value = false
+  sending.value = true
 
   const epoch = emailStore.syncSession(), operation = composeGeneration
   const payload = sendAttempt.prepare(form)
   form.requestId = payload.requestId
+  uncertainSend.value = true
+  const saved = await saveRecovery()
+  if (operation !== composeGeneration || epoch !== emailStore.syncSession()) { percentMessage?.close(); return }
+  if (!saved) {
+    percentMessage?.close()
+    sending.value = false
+    saveState.value = 'error'
+    return
+  }
+  const submittedDatabase = activeDatabase, submittedRecoveryId = recoveryId, submittedDraftId = form.draftId, submittedDraftVersion = baseDraftVersion
   emailSend(payload, (e) => {
-    percent.value = Math.round((e.loaded * 98) / e.total)
-  }).then(emailList => {
+    if (operation === composeGeneration && e.total) percent.value = Math.round((e.loaded * 98) / e.total)
+  }).then(async emailList => {
+    // Clean up the captured submission even after a mailbox switch. The
+    // repository compares payloads before deleting any subsequently edited draft.
+    let cleanupFailed = false
+    try {
+      await createComposeRecovery(submittedDatabase).clearSubmitted(submittedRecoveryId, submittedDraftId, payload, submittedDraftVersion)
+    } catch { cleanupFailed = true }
     if (epoch !== emailStore.syncSession() || operation !== composeGeneration) return
     sendAttempt.reset()
-    const email = emailList[0]
-    emailList.forEach(item => {
-      emailStore.sendScroll?.addItem(item)
-    })
-
-    ElNotification({
-      title: t('sendSuccessMsg'),
-      type: "success",
-      message: h('span', {style: 'color: teal'}, email.subject),
-      position: 'bottom-right'
-    })
-
-    userStore.refreshUserInfo();
-
-    addRecipientRecord();
-
-    if (form.draftId) {
-      form.subject = ''
-      form.content = ''
-      form.receiveEmail = []
-      draftStore.setDraft = {...toRaw(form)}
-    }
-
-    show.value = false
-    resetForm();
+    emailList.forEach(item => emailStore.sendScroll?.addItem(item))
+    ElNotification({ title: t('ux.sendSubmitted'), type: 'success', message: emailList[0]?.subject || form.subject, position: 'bottom-right' })
+    if (cleanupFailed) ElMessage({ message: t('ux.sentCleanupFailed'), type: 'warning' })
+    userStore.refreshUserInfo()
+    addRecipientRecord()
+    if (submittedDraftId != null) draftStore.refreshList++
+    finishClose()
   }).catch((e) => {
     if (epoch !== emailStore.syncSession() || operation !== composeGeneration) return
     // Only a confirmed not-sent result permits a new attempt for the same payload.
     if (e.code === 424) {
       sendAttempt.reset()
       form.requestId = ''
+      uncertainSend.value = false
     }
     ElNotification({
       title: t('sendFailMsg'),
       type: e.code === 403 ? 'warning' : 'error',
-      message: h('span', {style: 'color: teal'}, e.message),
+      message: e.message || t('reqFailErrorMsg'),
       position: 'bottom-right'
     })
     if (e.code === 401) {
@@ -408,11 +573,11 @@ async function sendEmail() {
       return;
     }
     show.value = true
+    void saveRecovery()
     addRecipientRecord();
   }).finally(() => {
-    percentMessage.close()
-    percent.value = 0
-    sending = false
+    percentMessage?.close()
+    if (operation === composeGeneration) { percent.value = 0; sending.value = false }
   })
 }
 
@@ -426,11 +591,28 @@ function addRecipientRecord() {
 }
 
 function clearSession() {
+  if (show.value) void saveRecovery()
+  recoveries.value = []
+  recoveryReadError.value = false
+  closePrompt.value = false
   show.value = false
   resetForm()
+  nextTick(loadRecoveries)
 }
 
 function resetForm() {
+  resetting = true
+  clearTimeout(saveTimer)
+  recoveryId = crypto.randomUUID()
+  baseDraftVersion = null
+  saveState.value = 'idle'
+  saveRevision = 0
+  savedRevision = -1
+  uncertainSend.value = false
+  sending.value = false
+  draftBusy.value = false
+  percent.value = 0
+  attachmentReads.value = 0
   composeGeneration++
   sendAttempt.reset()
   form.requestId = ''
@@ -449,6 +631,7 @@ function resetForm() {
   backReply.receiveEmail = []
   backReply.sendType = ''
   editor.value?.clearEditor?.()
+  resetting = false
 }
 
 function change(content, text) {
@@ -461,6 +644,8 @@ function focusChange() {
 }
 
 function openForward(email) {
+  if (sending.value || draftBusy.value) return
+  if (show.value && hasContent()) void saveRecovery()
   resetForm();
 
   email.subject = email.subject || ''
@@ -477,6 +662,7 @@ function openForward(email) {
     defValue.value = `
       ${formatImage(email.content) || `<pre style="font-family: inherit;word-break: break-word;white-space: pre-wrap;margin: 0">${email.text}</pre>`}
     `
+    form.content = defValue.value
     open()
 
     nextTick(() => {
@@ -490,7 +676,8 @@ function openForward(email) {
 }
 
 function openReply(email) {
-
+  if (sending.value || draftBusy.value) return
+  if (show.value && hasContent()) void saveRecovery()
   resetForm();
 
   email.subject = email.subject || ''
@@ -520,6 +707,7 @@ function openReply(email) {
           ${formatImage(email.content) || `<pre style="font-family: inherit;word-break: break-word;white-space: pre-wrap;margin: 0">${email.text}</pre>`}
       </article>
     </blockquote>`
+    form.content = defValue.value
     open()
 
     nextTick(() => {
@@ -539,6 +727,8 @@ function formatImage(content) {
 }
 
 function open() {
+  if (sending.value || draftBusy.value) return
+  activeDatabase = db.value
   if (!accountStore.currentAccount.email) {
     form.sendEmail = userStore.user.email;
     form.accountId = userStore.user.account.accountId;
@@ -549,93 +739,58 @@ function open() {
     form.name = accountStore.currentAccount.name;
   }
   show.value = true;
-  editor.value.focus()
+  focusEditor()
 }
 
 function openDraft(draft) {
+  if (sending.value || draftBusy.value) return
+  if (show.value && hasContent()) void saveRecovery()
   resetForm()
+  activeDatabase = db.value
   Object.assign(form, {...draft})
+  baseDraftVersion = draftVersion(draft)
+  sendAttempt.restore(form)
+  uncertainSend.value = !!form.requestId
   defValue.value = ''
   const operation = composeGeneration
   setTimeout(() => { if (operation === composeGeneration) defValue.value = form.content })
   show.value = true;
-  editor.value.focus()
+  focusEditor()
 }
 
 const handleKeyDown = (event) => {
-  if (event.key === 'Escape') {
-    close()
+  if (!show.value || sending.value || closePrompt.value || showContacts.value || document.querySelector('.tox-dialog, .el-message-box')) return
+  if (event.key === 'Escape') { event.preventDefault(); close() }
+  // Keep keyboard navigation in the custom compose dialog. TinyMCE handles its
+  // own iframe toolbar; native Tab reaches the next control through the iframe.
+  if (event.key === 'Tab') {
+    const controls = [...(composerPanel.value?.querySelectorAll('button:not(:disabled), input:not(:disabled), textarea, iframe, [tabindex="0"]') || [])]
+      .filter(el => el.getClientRects().length && !el.closest('[inert]'))
+    const first = controls[0], last = controls.at(-1)
+    if (event.shiftKey && document.activeElement === first) { event.preventDefault(); last?.focus() }
+    else if (!event.shiftKey && document.activeElement === last) { event.preventDefault(); first?.focus() }
   }
 };
 
 onMounted(() => {
-  window.addEventListener('keydown', handleKeyDown);
+  window.addEventListener('keydown', handleKeyDown)
+  window.addEventListener('beforeunload', beforeUnload)
+  void loadRecoveries()
 });
 
 onUnmounted(() => {
+  if (show.value) void saveRecovery()
+  clearTimeout(saveTimer)
   composeGeneration++
-  window.removeEventListener('keydown', handleKeyDown);
+  window.removeEventListener('keydown', handleKeyDown)
+  window.removeEventListener('beforeunload', beforeUnload)
 });
 
 function close() {
-
-  if (selectStatus) openSelect();
-
-  if (!form.content) {
-    form.content = editor.value.getContent();
-  }
-
-  if (form.draftId) {
-    draftStore.setDraft = {...toRaw(form)}
-    show.value = false
-    resetForm()
-    return;
-  }
-
-  if (!(form.content || form.subject || form.receiveEmail.length > 0)) {
-    show.value = false
-    resetForm()
-    return;
-  }
-
-  if (backReply.sendType === 'reply' || backReply.sendType === 'forward') {
-    let subjectFlag = form.subject === backReply.subject
-    let contentFlag = editor.value.getContent() === backReply.content
-    let receiveFlag = form.receiveEmail.length === 1 && form.receiveEmail[0] === backReply.receiveEmail[0]
-    if (backReply.sendType === 'forward' && form.receiveEmail.length === 0) {
-      receiveFlag = true;
-    }
-    if (subjectFlag && contentFlag && receiveFlag) {
-      resetForm();
-      close()
-      return;
-    }
-  }
-
-  ElMessageBox.confirm(t('saveDraftConfirm'), {
-    confirmButtonText: t('confirm'),
-    cancelButtonText: t('cancel'),
-    type: 'warning',
-    distinguishCancelAndClose: true
-  }).then(async () => {
-    const formData = {...toRaw(form)};
-    delete formData.draftId
-    delete formData.attachments
-    formData.createTime = dayjs().utc().format('YYYY-MM-DD HH:mm:ss');
-    const draftId = await db.value.draft.add({...formData})
-    db.value.att.add({draftId, attachments: toRaw(form.attachments)})
-    draftStore.refreshList++
-    show.value = false
-    await nextTick(() => {
-      resetForm()
-    })
-  }).catch((action) => {
-    if (action === 'cancel') {
-      show.value = false
-      resetForm()
-    }
-  })
-
+  if (!show.value || sending.value || draftBusy.value) return
+  if (selectStatus) openSelect()
+  if (!hasContent()) { void discardAndClose(); return }
+  closePrompt.value = true
 }
 
 </script>
@@ -661,6 +816,9 @@ function close() {
   display: flex;
   align-items: center;
   justify-content: center;
+  z-index: 1500;
+  background: rgb(0 0 0 / 25%);
+  min-height: 0;
 
   .write-box {
     background: var(--el-bg-color);
@@ -671,7 +829,7 @@ function close() {
     padding: 15px;
     border-radius: 8px;
     display: grid;
-    grid-template-rows: auto 1fr;
+    grid-template-rows: auto minmax(0, 1fr) auto;
     overflow: hidden;
     @media (max-width: 1024px) {
       width: 100%;
@@ -709,7 +867,7 @@ function close() {
       }
 
       .send-email {
-        color: #999896;
+        color: var(--el-text-color-secondary);
         margin-left: 5px;
         white-space: nowrap;
         text-overflow: ellipsis;
@@ -725,8 +883,9 @@ function close() {
 
     .container {
       height: 100%;
+      min-height: 0;
       display: grid;
-      grid-template-rows: auto auto 1fr auto;
+      grid-template-rows: auto auto minmax(0, 1fr) auto;
       gap: 15px;
 
       .item-title {
@@ -777,6 +936,42 @@ function close() {
     }
   }
 
+}
+
+.compose-status {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px 12px;
+  font-size: 13px;
+  color: var(--el-text-color-secondary);
+  padding-top: 8px;
+}
+.compose-status.is-error { color: var(--el-color-danger); }
+.compose-close-actions { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: 8px; }
+.compose-close-actions .el-button { margin: 0; }
+.compose-recovery {
+  position: fixed;
+  inset: auto 16px 44px auto;
+  max-width: min(480px, calc(100vw - 32px));
+  z-index: 1400;
+  padding: 12px 16px;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 12px;
+  background: var(--el-bg-color-overlay);
+  border: 1px solid var(--el-border-color);
+  box-shadow: var(--el-box-shadow-light);
+}
+@media (max-width: 600px) {
+  .send .write-box .container { gap: 10px; }
+  .send .write-box .container .button-item { grid-template-columns: auto auto minmax(0, 1fr) auto; }
+  .send .write-box .container .button-item .att-list { grid-column: 1 / -1; grid-row: 2; padding: 6px 0 0; }
+  .send .write-box .container .button-item > div:last-child { grid-column: 4; grid-row: 1; }
+  .send .write-box .title .title-left { min-width: 0; }
+  .send .write-box .title .sender-name { display: none; }
+  .send .write-box { height: 100dvh; padding-bottom: max(12px, env(safe-area-inset-bottom)); }
 }
 
 .email-row {
