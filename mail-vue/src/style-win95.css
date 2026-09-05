@@ -481,32 +481,36 @@ html.win95 .w95-dicon.sel span {
     outline: 1px dotted #ffff00;
 }
 
-/* ---- 用户身份卡（双面卡：正面票据 / 背面银行卡，⇄ 翻转切换；可拖拽） ---- */
+/* ---- Floating identity card: ticket front / bank back ---- */
 html.win95 .w95-idcard {
+    --card-action: 32px;
+    --card-tools: 76px;
     position: absolute;
     top: 56px;
     right: 28px;
-    width: 340px;
+    width: min(340px, calc(100% - 16px));
+    height: 214px;
+    z-index: 11;
     perspective: 1000px;
-    animation: w95IdcardIn 0.45s ease-out;
+    cursor: grab;
+    touch-action: none;
+    user-select: none;
+    animation: w95IdcardIn .3s ease-out;
 }
 @keyframes w95IdcardIn {
-    from { opacity: 0; transform: translateY(-12px); }
+    from { opacity: 0; transform: translateY(-8px); }
 }
-html.win95 .w95-idcard:active { cursor: grabbing; }
-
-/* 翻转容器：--ry 记录正反面角度，--press 做按压缩放反馈 */
+html.win95 .w95-idcard.dragging { cursor: grabbing; }
 html.win95 .w95-idcard-flip {
     position: relative;
-    width: 340px;
-    height: 214px;
+    width: 100%;
+    height: 100%;
     transform-style: preserve-3d;
     transform: rotateY(var(--ry, 0deg)) scale(var(--press, 1));
-    transition: transform 0.55s cubic-bezier(0.3, 0.7, 0.25, 1);
+    transition: transform .42s cubic-bezier(.3, .7, .25, 1);
 }
 html.win95 .w95-idcard-flip.bank { --ry: 180deg; }
-html.win95 .w95-idcard:active .w95-idcard-flip { --press: 0.98; }
-
+html.win95 .w95-idcard.dragging .w95-idcard-flip { --press: .985; }
 html.win95 .w95-idcard-face {
     position: absolute;
     inset: 0;
@@ -514,282 +518,277 @@ html.win95 .w95-idcard-face {
     -webkit-backface-visibility: hidden;
     border-radius: 16px !important;
     overflow: hidden;
-    box-shadow: 0 12px 32px rgba(0, 0, 0, 0.35);
-    transition: box-shadow 0.2s ease;
+    box-shadow: 0 10px 26px rgb(0 0 0 / .26), inset 0 0 0 1px rgb(255 255 255 / .18);
+    transition: box-shadow .16s ease;
 }
-html.win95 .w95-idcard:active .w95-idcard-face { box-shadow: 0 5px 14px rgba(0, 0, 0, 0.4); }
+html.win95 .w95-idcard.dragging .w95-idcard-face { box-shadow: 0 5px 12px rgb(0 0 0 / .3); }
 html.win95 .w95-idcard-face.w95-idcard-back { transform: rotateY(180deg); }
-
-/* 卡角按钮：换式 / 关闭（跟随后面配色） */
-html.win95 .w95-idcard-close,
-html.win95 .w95-idcard-style {
-    position: absolute;
-    top: 6px;
-    z-index: 6;
+html.win95 .w95-idcard button {
     display: inline-flex;
     align-items: center;
     justify-content: center;
-    width: 18px;
-    height: 18px;
     padding: 0;
-    background: transparent;
     border: none;
-    color: #9aa3af;
+    background: transparent;
+    color: inherit;
+    font: inherit;
     cursor: pointer;
+    transition: background-color .14s ease, color .14s ease;
+    border-radius: 6px !important;
 }
-html.win95 .w95-idcard-close { right: 10px; }
-html.win95 .w95-idcard-style { right: 30px; }
-html.win95 .w95-idcard-close:hover,
-html.win95 .w95-idcard-style:hover { color: #13181d; }
+html.win95 .w95-idcard button:disabled { cursor: default; opacity: .65; }
+html.win95 .w95-idcard button:focus-visible { outline: 2px solid currentColor; outline-offset: -2px; }
+html.win95 .w95-idcard button:hover { background: rgb(19 24 29 / .06); }
+html.win95 .w95-idcard button:active { background: rgb(19 24 29 / .12); }
+html.win95 .w95-idcard-close,
+html.win95 .w95-idcard-style {
+    position: absolute;
+    top: 12px;
+    z-index: 6;
+    width: var(--card-action);
+    height: var(--card-action);
+    color: #5b6573 !important;
+}
+html.win95 .w95-idcard-close { right: 12px; }
+html.win95 .w95-idcard-style { right: calc(16px + var(--card-action)); }
 html.win95 .w95-idcard.bank .w95-idcard-close,
-html.win95 .w95-idcard.bank .w95-idcard-style { color: rgba(255, 255, 255, 0.75); }
-html.win95 .w95-idcard.bank .w95-idcard-close:hover,
-html.win95 .w95-idcard.bank .w95-idcard-style:hover { color: #ffffff; }
-
-/* ---- 正面：票据（固定 340×214，与背面同尺寸） ---- */
+html.win95 .w95-idcard.bank .w95-idcard-style { color: #edf9fa !important; }
+html.win95 .w95-idcard.bank > button:hover,
+html.win95 .w95-idcard-back button:hover { background: rgb(255 255 255 / .12); }
+html.win95 .w95-idcard.bank > button:active,
+html.win95 .w95-idcard-back button:active { background: rgb(255 255 255 / .2); }
 html.win95 .w95-idcard-face.w95-idcard-front {
     display: flex;
     flex-direction: column;
-    padding: 14px 20px 10px;
-    background: linear-gradient(160deg, #ffffff 0%, #eaf2fd 100%);
+    padding: 12px 20px 12px;
+    background: linear-gradient(160deg, #fff, #eaf2fd);
+    color: #13181d;
 }
 html.win95 .w95-idcard-head {
     display: flex;
     align-items: center;
-    justify-content: space-between;
-    gap: 10px;
+    gap: 8px;
+    min-height: var(--card-action);
+    padding-right: var(--card-tools);
 }
 html.win95 .w95-idcard-brand {
-    font-weight: 900;
-    font-size: 14px;
-    letter-spacing: 0.5px;
-    color: #13181d;
-    text-transform: uppercase;
+    min-width: 0;
+    font-weight: 700;
+    font-size: 13px;
+    letter-spacing: .3px;
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
-    min-width: 0;
 }
-html.win95 .w95-idcard-brand::before {
-    content: "✉";
-    display: inline-flex;
-    width: 20px;
-    height: 20px;
-    align-items: center;
-    justify-content: center;
-    background: #13181d;
-    color: #ffffff;
-    font-size: 12px;
-    border-radius: 6px !important;
-    margin-right: 8px;
-    vertical-align: -4px;
-}
-/* 姓名首字圆章，平衡首行右侧留白（右侧让位给 ⇄/× 两个卡角按钮） */
 html.win95 .w95-idcard-mono {
     flex: none;
     width: 26px;
     height: 26px;
-    margin-right: 34px;
     display: inline-flex;
     align-items: center;
     justify-content: center;
-    background: #13181d;
-    color: #ffffff;
+    background: #192b38;
+    color: #fff;
     font-size: 13px;
-    font-weight: 800;
+    font-weight: 700;
     border-radius: 50% !important;
 }
-/* 邮箱为主字段，单行省略，悬停可见全名 */
-html.win95 .w95-idcard-email {
-    margin-top: 14px;
-    font-size: 17px;
-    font-weight: 900;
-    color: #13181d;
-    line-height: 1.25;
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    cursor: pointer;
+html.win95 .w95-idcard-primary {
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    flex: 1;
+    padding-block: 10px 12px;
 }
-html.win95 .w95-idcard-email:hover { text-decoration: underline; }
-/* 票号用等宽字体强化票据感 */
+html.win95 .w95-idcard-label { color: #637080; font-size: 11px; letter-spacing: .5px; }
 html.win95 .w95-idcard-no {
-    margin-top: 6px;
+    margin-top: 5px;
     font-family: "Courier New", monospace;
-    font-size: 12.5px;
-    font-weight: 700;
-    color: #6b7280;
-    letter-spacing: 1.5px;
+    font-size: 12px;
+    color: #637080;
+    letter-spacing: 1px;
 }
-/* 撕票口 + 打孔（孔色跟随桌面底色变量，避免硬编码穿帮） */
 html.win95 .w95-idcard-dash {
-    margin: auto -20px 10px;
-    border-top: 2px dashed #d7dce6;
+    margin: 0 -20px 12px;
+    border-top: 1px dashed #b8c7d8;
     position: relative;
 }
 html.win95 .w95-idcard-dash::before,
 html.win95 .w95-idcard-dash::after {
     content: "";
     position: absolute;
-    top: -10px;
-    width: 20px;
-    height: 20px;
+    top: -8px;
+    width: 16px;
+    height: 16px;
     background: var(--w95-desktop, #008080);
     border-radius: 50% !important;
 }
-html.win95 .w95-idcard-dash::before { left: -9px; }
-html.win95 .w95-idcard-dash::after { right: -9px; }
+html.win95 .w95-idcard-dash::before { left: -8px; }
+html.win95 .w95-idcard-dash::after { right: -8px; }
 html.win95 .w95-idcard-foot {
     text-align: center;
-    font-size: 11.5px;
-    color: #8a93a3;
+    font-size: 12px;
+    line-height: 1.4;
+    color: #637080;
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
 }
-
-/* ---- 背面：银行卡（参考实体借记卡版面） ---- */
-html.win95 .w95-idcard-face.w95-idcard-back {
-    background: linear-gradient(135deg, #0d5c66 0%, #14808c 55%, #0f6a75 100%);
+html.win95 .w95-email-row { display: flex; align-items: center; gap: 4px; min-width: 0; }
+html.win95 .w95-idcard .w95-email-copy {
+    display: flex;
+    justify-content: flex-start;
+    gap: 8px;
+    min-width: 0;
+    min-height: var(--card-action);
+    flex: 1;
+    text-align: left;
+    font-size: 16px;
+    font-weight: 650;
 }
-html.win95 .w95-bank-svg {
+html.win95 .w95-email-copy > svg { flex: none; opacity: .7; }
+html.win95 .w95-email-address { display: flex; flex: 1; min-width: 0; }
+html.win95 .w95-email-local,
+html.win95 .w95-email-domain { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+html.win95 .w95-email-local { min-width: 0; }
+html.win95 .w95-email-domain { flex: 0 0 auto; max-width: 65%; }
+html.win95 .w95-email-success { flex: 1; font-size: 13px; }
+html.win95 .w95-idcard-front .w95-email-copy.copied { color: #16604b; }
+html.win95 .w95-idcard .w95-email-more { flex: none; width: var(--card-action); height: var(--card-action); }
+html.win95 .w95-idcard-face.w95-idcard-back {
+    color: #fff;
+    background: linear-gradient(135deg, #0d5c66, #14808c 55%, #0f6a75);
+}
+html.win95 .w95-bank-svg { position: absolute; inset: 0; width: 100%; height: 100%; pointer-events: none; opacity: .52; }
+html.win95 .w95-idcard-back::after {
+    content: "";
     position: absolute;
     inset: 0;
-    width: 100%;
-    height: 100%;
-    z-index: 0;
+    background: linear-gradient(transparent 40%, rgb(3 37 43 / .55));
     pointer-events: none;
 }
 html.win95 .w95-bank-brand {
     position: absolute;
-    top: 14px;
-    right: 56px;
+    top: 12px;
+    left: 20px;
+    right: calc(12px + var(--card-tools));
+    min-height: var(--card-action);
     z-index: 2;
     display: flex;
     align-items: center;
     gap: 8px;
-    max-width: 230px;
-    color: #ffffff;
-    font-weight: 900;
-    font-size: 15px;
-    letter-spacing: 0.5px;
+    font-weight: 700;
+    font-size: 13px;
     white-space: nowrap;
-    overflow: hidden;
 }
 html.win95 .w95-bank-brand svg { flex: none; }
-/* tier 显示角色名（院系/身份），更有个体信息量 */
+html.win95 .w95-bank-brand span { min-width: 0; overflow: hidden; text-overflow: ellipsis; }
 html.win95 .w95-bank-tier {
     position: absolute;
-    top: 82px;
-    right: 56px;
+    top: calc(26px + var(--card-action));
+    left: 20px;
+    right: 86px;
     z-index: 2;
-    color: rgba(255, 255, 255, 0.85);
-    font-size: 15px;
-    font-weight: 600;
-    line-height: 1.25;
-    max-width: 160px;
+    color: #e0f1f2;
+    font-size: 12px;
+    line-height: 1.4;
     white-space: nowrap;
     overflow: hidden;
-    text-transform: uppercase;
+    text-overflow: ellipsis;
 }
-/* 全息防伪小贴片 */
 html.win95 .w95-bank-holo {
     position: absolute;
-    top: 44px;
-    right: 20px;
+    top: calc(28px + var(--card-action));
+    right: 51px;
+    width: 26px;
+    height: 18px;
     z-index: 2;
-    width: 30px;
-    height: 22px;
-    background: linear-gradient(120deg, rgba(255, 255, 255, 0) 0%, rgba(255, 255, 255, 0.55) 25%, rgba(160, 220, 255, 0.5) 50%, rgba(255, 190, 230, 0.45) 75%, rgba(255, 255, 255, 0.1) 100%);
+    background: linear-gradient(120deg, transparent, #fff8, #a0dcff80, #ffbee673, transparent);
     border-radius: 3px !important;
     transform: rotate(-8deg);
-    opacity: 0.55;
-    mix-blend-mode: screen;
+    opacity: .45;
     pointer-events: none;
 }
-html.win95 .w95-bank-wave {
-    position: absolute;
-    top: 80px;
-    right: 18px;
-    z-index: 2;
-}
+html.win95 .w95-bank-wave { position: absolute; top: calc(24px + var(--card-action)); right: 20px; z-index: 2; opacity: .7; }
 html.win95 .w95-bank-num {
     position: absolute;
-    left: 22px;
-    bottom: 54px;
+    left: 20px;
+    right: 20px;
+    bottom: 86px;
     z-index: 2;
-    color: #ffffff;
+    font-family: "Courier New", monospace;
     font-size: 19px;
-    font-weight: 800;
-    letter-spacing: 2.5px;
+    font-weight: 700;
+    letter-spacing: 1.5px;
     white-space: nowrap;
-    text-shadow: 0 -1px 0 rgba(0, 0, 0, 0.45), 0 1px 0 rgba(255, 255, 255, 0.28);
+    text-shadow: 0 -1px 0 rgb(0 0 0 / .3);
 }
-/* 持卡人 + 有效期 */
 html.win95 .w95-bank-meta {
     position: absolute;
-    left: 22px;
-    right: 110px;
-    bottom: 28px;
+    left: 20px;
+    right: 66px;
+    bottom: 49px;
     z-index: 2;
     display: flex;
     align-items: baseline;
     justify-content: space-between;
-    gap: 12px;
+    gap: 8px;
 }
-html.win95 .w95-bank-name {
-    min-width: 0;
-    color: rgba(255, 255, 255, 0.92);
-    font-size: 12.5px;
-    font-weight: 700;
-    letter-spacing: 1.5px;
-    text-transform: uppercase;
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
-}
-html.win95 .w95-bank-valid {
-    flex: none;
-    color: rgba(255, 255, 255, 0.65);
-    font-family: "Courier New", monospace;
-    font-size: 10px;
-    letter-spacing: 1px;
-}
-html.win95 .w95-bank-email {
-    position: absolute;
-    left: 22px;
-    bottom: 8px;
-    right: 104px;
-    z-index: 2;
-    color: rgba(255, 255, 255, 0.8);
-    font-size: 12.5px;
-    font-weight: 600;
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    cursor: pointer;
-}
-html.win95 .w95-bank-email:hover { color: #ffffff; text-decoration: underline; }
-html.win95 .w95-bank-circles {
-    position: absolute;
-    right: 22px;
-    bottom: 16px;
-    z-index: 2;
-    width: 56px;
-    height: 34px;
-    pointer-events: none;
-}
-html.win95 .w95-bank-circles i {
-    position: absolute;
-    top: 0;
-    width: 34px;
-    height: 34px;
-    border-radius: 50% !important;
-    opacity: 0.92;
-}
+html.win95 .w95-bank-name { min-width: 0; font-size: 13px; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+html.win95 .w95-bank-valid { flex: none; font-family: "Courier New", monospace; font-size: 11px; color: #d6eaec; white-space: nowrap; }
+html.win95 .w95-bank-email { position: absolute; left: 20px; right: 16px; bottom: 7px; z-index: 2; }
+html.win95 .w95-bank-email .w95-email-copy { font-size: 13px; font-weight: 500; }
+html.win95 .w95-bank-circles { position: absolute; right: 20px; bottom: 50px; z-index: 2; width: 32px; height: 20px; pointer-events: none; }
+html.win95 .w95-bank-circles i { position: absolute; top: 0; width: 20px; height: 20px; border-radius: 50% !important; opacity: .85; }
 html.win95 .w95-bank-circles i:first-child { left: 0; background: #eb001b; }
 html.win95 .w95-bank-circles i:last-child { right: 0; background: #f79e1b; mix-blend-mode: screen; }
-
+html.win95 .w95-email-details {
+    position: absolute;
+    inset: calc(20px + var(--card-action)) 10px 10px;
+    z-index: 8;
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    padding: 8px 10px;
+    border: 1px solid #b8c7d8;
+    border-radius: 8px !important;
+    background: #f7fafd;
+    box-shadow: 0 3px 12px rgb(0 0 0 / .18);
+    color: #192b38;
+    cursor: default;
+    touch-action: auto;
+    user-select: text;
+    overflow: auto;
+}
+html.win95 .w95-email-details-head { display: flex; align-items: center; justify-content: space-between; font-size: 12px; font-weight: 600; }
+html.win95 .w95-email-details-head button { width: 28px; height: 28px; flex: none; }
+html.win95 .w95-email-details textarea {
+    width: 100%;
+    min-height: 40px;
+    flex: 1;
+    resize: none;
+    border: 1px solid #b8c7d8;
+    border-radius: 4px !important;
+    padding: 5px;
+    background: #fff;
+    color: #192b38;
+    font: 12px/1.5 "Courier New", monospace;
+    overflow-wrap: anywhere;
+}
+html.win95 .w95-email-details textarea:focus { outline: 2px solid #326b93; outline-offset: 1px; }
+html.win95 .w95-email-details-foot { display: flex; align-items: center; gap: 8px; font-size: 11px; line-height: 1.4; }
+html.win95 .w95-email-details-foot > span { flex: 1; }
+html.win95 .w95-email-details-foot button { flex: none; min-height: 28px; padding-inline: 6px; background: #e5edf5; font-size: 11px; }
+html.win95 .w95-idcard-announcement { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
+@media (pointer: coarse) {
+    html.win95 .w95-idcard { --card-action: 44px; --card-tools: 96px; height: 240px; }
+    html.win95 .w95-bank-meta { bottom: 61px; }
+    html.win95 .w95-bank-num { bottom: 100px; }
+    html.win95 .w95-bank-circles { bottom: 62px; }
+    html.win95 .w95-email-details-head button { width: 44px; height: 44px; }
+    html.win95 .w95-email-details-foot button { min-height: 44px; }
+    html.win95 .w95-email-details { inset-block-start: 60px; }
+}
 @media (prefers-reduced-motion: reduce) {
     html.win95 .w95-idcard { animation: none; }
     html.win95 .w95-idcard-flip { transition: none; }
@@ -1196,16 +1195,11 @@ html.win95 .w95-sm-item { width: 100%; text-align: left; color: #000; }
 html.win95 .w95-titlebar { height: 36px; }
 html.win95 .w95-titlebar .tbtns { display: flex; gap: 3px; }
 html.win95 .w95-tbtn { width: 32px; height: 32px; }
-html.win95 .w95-idcard-close, html.win95 .w95-idcard-style { width: 32px; height: 32px; top: 2px; }
-html.win95 .w95-idcard-style { right: 45px; }
-html.win95 .w95-idcard-close { right: 9px; }
-html.win95 .w95-idcard-email, html.win95 .w95-bank-email { text-align: left; }
 html.win95 .w95-dicon { color: #fff; }
 html.win95 .del-email .el-button--danger { color: #800000 !important; font-weight: bold; }
 @media (pointer: coarse) {
   html.win95 .w95-titlebar { height: 48px; }
-  html.win95 .w95-tbtn, html.win95 .w95-idcard-close, html.win95 .w95-idcard-style { width: 44px; height: 44px; }
-  html.win95 .w95-idcard-style { right: 57px; }
+  html.win95 .w95-tbtn { width: 44px; height: 44px; }
   html.win95 .w95-menu-item, html.win95 .w95-ditem, html.win95 .w95-sm-item, html.win95 .w95-btn { min-height: 44px; }
 }
 
