@@ -6,7 +6,7 @@ const constant = {
 	ATTACHMENT_PREFIX: 'attachments/',
 	BACKGROUND_PREFIX: 'static/background/',
 	ADMIN_ROLE: {
-		name: 'admin',
+		name: '计算机科学',
 		sendCount: 0,
 		sendType: 'count',
 		accountCount: 0
