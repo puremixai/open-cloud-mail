@@ -1,4 +1,9 @@
 const zh = {
+    mailSelectionRequired: '请从邮件列表选择一封邮件。',
+    mailLoadFailed: '邮件加载失败，请重试。',
+    mailDetailLoading: '正在加载完整邮件…',
+    retry: '重试',
+
     inbox: '收件箱',
     drafts: '草稿箱',
     sent: '已发送',

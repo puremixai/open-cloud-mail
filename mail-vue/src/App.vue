@@ -1,9 +1,13 @@
 <template>
   <el-config-provider :locale="settingStore.lang === 'zh' ? zhCn : null">
-    <router-view />
+    <Bootstrap :initialize="initialize"><router-view /></Bootstrap>
   </el-config-provider>
 </template>
 <script setup>
+import { RouterView } from 'vue-router'
+import { ElConfigProvider } from 'element-plus'
+import Bootstrap from "@/components/bootstrap/index.vue"
+defineProps({ initialize: { type: Function, required: true } })
 import { useI18n } from "vue-i18n";
 import { watch } from "vue";
 import {useSettingStore} from "@/store/setting.js";

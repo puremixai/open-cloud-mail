@@ -30,7 +30,7 @@ import emailScroll from "@/components/email-scroll/index.vue"
 import {emailList, emailDelete, emailLatest, emailRead} from "@/request/email.js";
 import {starAdd, starCancel} from "@/request/star.js";
 import {defineOptions, h, onMounted, reactive, ref, watch} from "vue";
-import {sleep} from "@/utils/time-utils.js";
+import {useMailPolling} from '@/utils/mail-polling.js';
 import router from "@/router/index.js";
 import {Icon} from "@iconify/vue";
 import { useRoute } from 'vue-router'
@@ -49,8 +49,7 @@ const params = reactive({
 })
 
 onMounted(() => {
-  emailStore.emailScroll = scroll;
-  latest()
+  emailStore.emailScroll = scroll.value;
 })
 
 
@@ -65,6 +64,8 @@ function changeTimeSort() {
 
 function jumpContent(email) {
   emailStore.contentData.email = emailStore.toContentEmail(email)
+  emailStore.contentData.admin = false
+  emailStore.contentData.showUnread = true
   emailStore.contentData.delType = 'logic'
   emailStore.contentData.showUnread = true
   emailStore.contentData.showStar = true
@@ -72,63 +73,20 @@ function jumpContent(email) {
   router.push('/mail')
 }
 
-const existIds = new Set();
-
-async function latest() {
-  while (true) {
-
-    let autoRefresh = settingStore.settings.autoRefresh;
-    await sleep(autoRefresh > 1 ? autoRefresh * 1000 : 3000);
-
-    if (route.name !== 'email') {
-      continue;
-    }
-
-    const latestId = scroll.value.latestEmail?.emailId
-
-    if (!scroll.value.firstLoad && autoRefresh > 1) {
-      try {
-        const accountId = accountStore.currentAccountId
-        const allReceive = scroll.value.latestEmail?.allReceive
-        const curTimeSort = params.timeSort
-        let list = []
-
-        //确保发起请求时最后一个邮件是当前账号的,或者
-        if (accountId === scroll.value.latestEmail?.reqAccountId) {
-          list = await emailLatest(latestId, accountId, allReceive);
-        }
-
-        //确保请求回来后，账号没有切换，时间排序没有改变，全部邮件类型没变
-        if (accountId === accountStore.currentAccountId && params.timeSort === curTimeSort && allReceive === accountStore.currentAccount.allReceive) {
-          if (list.length > 0) {
-
-            for (let email of list) {
-
-              email.reqAccountId = accountId;
-              email.allReceive = allReceive;
-
-              if (!existIds.has(email.emailId)) {
-
-                existIds.add(email.emailId)
-                scroll.value.addItem(email)
-
-                await sleep(50)
-              }
-
-            }
-
-          }
-
-        }
-      } catch (e) {
-        if (e.code === 401 || e.code === 403) {
-          settingStore.settings.autoRefresh = 0;
-        }
-        console.error(e)
-      }
-    }
+useMailPolling(async (signal, valid) => {
+  if (route.name !== 'email' || settingStore.settings.autoRefresh < 2 || scroll.value.firstLoad) return
+  const accountId = accountStore.currentAccountId
+  const latest = scroll.value.latestEmail
+  if (!latest || latest.reqAccountId !== accountId) return
+  try {
+    const list = await emailLatest(latest.emailId, accountId, latest.allReceive, { signal })
+    if (!valid()) return
+    for (const email of list) scroll.value.addItem({ ...email, reqAccountId: accountId, allReceive: latest.allReceive })
+  } catch (error) {
+    if (valid() && [401, 403].includes(error?.code)) settingStore.settings.autoRefresh = 0
   }
-}
+}, () => Math.max(3, settingStore.settings.autoRefresh || 0) * 1000,
+() => JSON.stringify([route.name, emailStore.generation, accountStore.currentAccountId, accountStore.currentAccount.allReceive, params.timeSort, settingStore.settings.autoRefresh]))
 
 function addStar(email) {
   emailStore.starScroll?.addItem(email)
@@ -138,12 +96,13 @@ function cancelStar(email) {
   emailStore.starScroll?.deleteEmail([email.emailId])
 }
 
-function getEmailList(emailId, size) {
+function getEmailList(emailId, size, options) {
   const accountId =  accountStore.currentAccountId;
   const allReceive = accountStore.currentAccount.allReceive;
   return emailStore.fetchList(full =>
-    emailList(accountId, allReceive, emailId, params.timeSort, size, 0, full)
+    emailList(accountId, allReceive, emailId, params.timeSort, size, 0, full, options)
   ).then(data => {
+    data.latestEmail ||= { emailId: 0 }
     data.latestEmail.reqAccountId = accountId;
     data.latestEmail.allReceive = allReceive;
     return data;

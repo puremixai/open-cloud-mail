@@ -38,6 +38,9 @@
     </div>
 
     <div ref="scroll" class="scroll">
+      <div v-if="listError" role="alert">{{ t('mailLoadFailed') }} <button @click="refreshList">{{ t('retry') }}</button></div>
+      <div v-if="actionLoading" role="status">{{ t('mailDetailLoading') }}</div>
+      <div v-if="actionError" role="alert">{{ t('mailLoadFailed') }} <button @click="retryAction?.()">{{ t('retry') }}</button></div>
       <UseVirtualList ref="scrollbarRef"
                         @scroll="onScroll"
                         :list="list"
@@ -248,10 +251,11 @@
 </template>
 
 <script setup>
+import {ElMessage, ElMessageBox} from 'element-plus';
 import {Icon} from "@iconify/vue";
 import skeletonBlock from "@/components/email-scroll/skeleton/index.vue"
-import {computed, onActivated, reactive, ref, watch, nextTick, onMounted, onUnmounted } from "vue";
-import {useEmailStore} from "@/store/email.js";
+import {computed, onActivated, reactive, ref, watch, nextTick, onMounted, onUnmounted, onDeactivated } from "vue";
+import {isCanceled, useEmailStore} from "@/store/email.js";
 import {useUiStore} from "@/store/ui.js";
 import {useSettingStore} from "@/store/setting.js";
 import {sleep} from "@/utils/time-utils.js"
@@ -330,6 +334,17 @@ let scrollTop = 0
 const latestEmail = ref(null)
 const scrollbarRef = ref(null)
 let reqLock = false
+let requestId = 0
+let requestController = null
+let active = true
+let needsRefresh = false
+let actionId = 0
+let dropdownTimer = null
+let restoreFrame = null
+const listError = ref(false)
+const actionLoading = ref(false)
+const actionError = ref(false)
+let retryAction = null
 let isMobile = ref(innerWidth < 1367)
 let skeletonRows = 0
 const timePaddingRight = ref('');
@@ -374,38 +389,70 @@ defineExpose({
   total
 })
 
-onActivated(() => {
-  requestAnimationFrame(() => {
-    const index = scrollTop / itemHeight.value
-    scrollbarRef.value?.scrollTo(index);
-  })
-})
-
-function onEscClose(e) {
-  if (e.key === 'Escape' && dropdownShow.value) {
-    dropdownRef.value?.handleClose()
-  }
-}
-
-onMounted(() => {
-  timer = setInterval(() => {
-    emailList.forEach(email => {
-      email.formatCreateTime = fromNow(email.createTime);
-    })
-  }, 1000 * 60);
+function startEffects() {
+  const wasInactive = !active
+  active = true
+  if (!timer) timer = setInterval(() => {
+    emailList.forEach(email => email.formatCreateTime = fromNow(email.createTime))
+  }, 60000)
   document.addEventListener('keydown', onEscClose)
-})
-
-onUnmounted(() => {
-  clearInterval(timer)
-  document.removeEventListener('keydown', onEscClose)
-})
-
-getEmailList()
-
-window.onresize = () => {
-  isMobile.value = innerWidth < 1367
+  window.addEventListener('wheel', onWheel)
+  window.addEventListener('resize', onResize)
+  if (wasInactive && needsRefresh) { needsRefresh = false; refreshList() }
 }
+function stopEffects() {
+  active = false
+  actionId++
+  actionLoading.value = false
+  actionError.value = false
+  retryAction = null
+  if (reqLock) needsRefresh = true
+  requestId++
+  requestController?.abort()
+  reqLock = false
+  loading.value = false
+  followLoading.value = false
+  clearInterval(timer)
+  timer = null
+  dropdownRef.value?.handleClose()
+  clearTimeout(dropdownTimer)
+  dropdownCloseLock.value = false
+  dropdownShow.value = false
+  cancelAnimationFrame(restoreFrame)
+  document.removeEventListener('keydown', onEscClose)
+  window.removeEventListener('wheel', onWheel)
+  window.removeEventListener('resize', onResize)
+}
+function onEscClose(e) {
+  if (e.key === 'Escape' && dropdownShow.value) dropdownRef.value?.handleClose()
+}
+function onWheel() { if (dropdownShow.value) dropdownRef.value?.handleClose() }
+function onResize() { isMobile.value = innerWidth < 1367 }
+onMounted(startEffects)
+onActivated(() => {
+  startEffects()
+  restoreFrame = requestAnimationFrame(() => scrollbarRef.value?.scrollTo(scrollTop / itemHeight.value))
+})
+onDeactivated(stopEffects)
+onUnmounted(stopEffects)
+watch(() => emailStore.generation, () => {
+  requestId++
+  requestController?.abort()
+  reqLock = false
+  loading.value = false
+  followLoading.value = false
+  emailList.length = 0
+  latestEmail.value = null
+  total.value = 0
+  noLoading.value = false
+  actionId++
+  actionError.value = false
+  actionLoading.value = false
+  retryAction = null
+  needsRefresh = true
+  if (active && localStorage.getItem('token')) refreshList()
+}, { flush: 'sync' })
+getEmailList()
 
 function onScroll(e) {
   scrollTop = e.target.scrollTop;
@@ -462,7 +509,7 @@ watch(followLoading, (isFollowLoading) => {
     })
   } else {
     const index = expandList.findIndex(item => item.expand === 'loading')
-    expandList.splice(index, 1);
+    if (index >= 0) expandList.splice(index, 1);
   }
 });
 
@@ -474,14 +521,14 @@ watch(noLoading, (isNoLoading) => {
     })
   } else {
     const index = expandList.findIndex(item => item.expand === 'noMoreData')
-    expandList.splice(index, 1);
+    if (index >= 0) expandList.splice(index, 1);
   }
 })
 
 
 // 监听是否到达底部
 watch(() => arrivedState.bottom, (isBottom) => {
-  if (isBottom && !loading.value) {
+  if (isBottom && !loading.value && !listError.value) {
     loadData();
   }
 });
@@ -520,24 +567,32 @@ watch(() => emailStore.addStarEmailId, () => {
   })
 })
 
-window.addEventListener('wheel', (event) => {
-  if (dropdownShow.value) {
-    dropdownRef.value.handleClose();
+async function compose(email, method) {
+  const operation = ++actionId
+  const epoch = emailStore.syncSession()
+  retryAction = () => compose(email, method)
+  actionLoading.value = true
+  actionError.value = false
+  try {
+    const detail = await emailStore.ensureDetail(email.emailId, { admin: props.type === 'all-email' })
+    if (active && operation === actionId && epoch === emailStore.syncSession()) {
+      await uiStore.writerRef[method](detail)
+      retryAction = null
+    }
+  } catch (error) {
+    if (active && operation === actionId && !isCanceled(error)) actionError.value = true
+  } finally {
+    if (operation === actionId) actionLoading.value = false
   }
-})
-
-function openReply(email) {
-  uiStore.writerRef.openReply(email)
 }
-
-function openForward(email) {
-  uiStore.writerRef.openForward(email)
-}
+function openReply(email) { return compose(email, 'openReply') }
+function openForward(email) { return compose(email, 'openForward') }
 
 function visibleChange(e) {
   dropdownShow.value = e;
   dropdownCloseLock.value = true;
-  setTimeout(() => {
+  clearTimeout(dropdownTimer)
+  dropdownTimer = setTimeout(() => {
     dropdownCloseLock.value = false;
   },1500)
 
@@ -591,30 +646,28 @@ const accountShow = computed(() => {
   return uiStore.accountShow && settingStore.settings.manyEmail === 0
 })
 
-function starChange(email) {
-
-  if (!email.isStar) {
-
-    if (!props.allowStar) return;
-
-    email.isStar = 1;
-    props.starAdd(email.emailId).then(() => {
-      email.isStar = 1;
-      props.starSuccess(email)
-    }).catch(e => {
-      console.error(e)
-      email.isStar = 0
-    })
-  } else {
-
-    email.isStar = 0;
-    props.starCancel(email.emailId).then(() => {
-      email.isStar = 0;
-      props.cancelSuccess?.(email)
-    }).catch(e => {
-      console.error(e)
-      email.isStar = 1;
-    })
+const starRequests = new Set()
+async function starChange(email) {
+  const id = email.emailId, before = email.isStar || 0, after = before ? 0 : 1
+  if (starRequests.has(id) || (after && !props.allowStar)) return
+  const mutation = emailStore.beginStarMutation(id)
+  starRequests.add(id)
+  email.isStar = after
+  emailStore.updateEmail(id, { isStar: after })
+  try {
+    await (after ? props.starAdd(id) : props.starCancel(id))
+    if (!emailStore.isCurrentStarMutation(mutation)) return
+    emailStore.updateEmail(id, { isStar: after })
+    if (after) props.starSuccess?.(email)
+    else props.cancelSuccess?.(email)
+  } catch (error) {
+    if (emailStore.isCurrentStarMutation(mutation)) {
+      email.isStar = before
+      emailStore.updateEmail(id, { isStar: before })
+    }
+  } finally {
+    starRequests.delete(id)
+    emailStore.finishStarMutation(mutation)
   }
 }
 
@@ -622,15 +675,16 @@ function changeAccountShow() {
   uiStore.accountShow = !uiStore.accountShow;
 }
 
-const handleRead = () => {
-  const emailIds = getSelectedMailsIds();
-  props.emailRead(emailIds);
-  localRead(emailIds);
-}
-
-function emailRead(emailId) {
-  props.emailRead([emailId])
-  localRead([emailId]);
+const handleRead = () => markRead(getSelectedMailsIds())
+function emailRead(emailId) { return markRead([emailId]) }
+async function markRead(ids) {
+  const epoch = emailStore.syncSession()
+  try {
+    await props.emailRead(ids)
+    if (epoch !== emailStore.syncSession()) return
+    localRead(ids)
+    ids.forEach(id => emailStore.markListRead(id))
+  } catch {}
 }
 
 function localRead(emailIds) {
@@ -643,34 +697,21 @@ function localRead(emailIds) {
   })
 }
 
-function rightDelete(emailId) {
-
-  if (props.type === 'all-email') {
-    ElMessageBox.confirm(t('delOneEmailConfirm'), {
-      confirmButtonText: t('confirm'),
-      cancelButtonText: t('cancel'),
-      type: 'warning'
-    }).then(() => {
-      props.emailDelete([emailId]).then(() => {
-        ElMessage({
-          message: t('delSuccessMsg'),
-          type: 'success',
-          plain: true
-        })
-        emailStore.deleteIds = [emailId];
-      })
+async function removeEmails(ids, confirm = false) {
+  const epoch = emailStore.syncSession()
+  try {
+    if (confirm) await ElMessageBox.confirm(t('delEmailsConfirm'), {
+      confirmButtonText: t('confirm'), cancelButtonText: t('cancel'), type: 'warning'
     })
-    return;
-  }
-  props.emailDelete([emailId]).then(() => {
-    ElMessage({
-      message: t('delSuccessMsg'),
-      type: 'success',
-      plain: true
-    })
-    emailStore.deleteIds = [emailId];
-  })
+    if (epoch !== emailStore.syncSession()) return
+    await props.emailDelete(ids)
+    if (epoch !== emailStore.syncSession()) return
+    emailStore.invalidateDetail(ids)
+    emailStore.deleteIds = ids
+    ElMessage({ message: t('delSuccessMsg'), type: 'success', plain: true })
+  } catch {}
 }
+function rightDelete(emailId) { return removeEmails([emailId], props.type === 'all-email') }
 
 function handleSearch(type, value) {
   emit('right-search', type, value);
@@ -694,32 +735,19 @@ async function copyCode(code) {
   }
 }
 
-function handleDelete() {
-  ElMessageBox.confirm(t('delEmailsConfirm'), {
-    confirmButtonText: t('confirm'),
-    cancelButtonText: t('cancel'),
-    type: 'warning'
-  }).then(() => {
-
-    if (props.type === 'draft') {
-      const draftIds = getSelectedDraftsIds();
-      emit('delete-draft', draftIds);
-      return;
-    }
-
-    const emailIds = getSelectedMailsIds();
-    props.emailDelete(emailIds).then(() => {
-      ElMessage({
-        message: t('delSuccessMsg'),
-        type: 'success',
-        plain: true
-      })
-      emailStore.deleteIds = emailIds;
+async function handleDelete() {
+  if (props.type !== 'draft') return removeEmails(getSelectedMailsIds(), true)
+  const ids = getSelectedDraftsIds(), epoch = emailStore.syncSession()
+  try {
+    await ElMessageBox.confirm(t('delEmailsConfirm'), {
+      confirmButtonText: t('confirm'), cancelButtonText: t('cancel'), type: 'warning'
     })
-  })
+    if (epoch === emailStore.syncSession()) emit('delete-draft', ids)
+  } catch {}
 }
 
 function deleteEmail(emailIds) {
+  emailStore.invalidateDetail(emailIds)
   emailIds.forEach(emailId => {
     emailList.forEach((item, index) => {
       if (emailId === item.emailId) {
@@ -824,71 +852,50 @@ function jumpDetails(email) {
       return
     }
   }
+  actionId++
+  actionError.value = false
+  actionLoading.value = false
+  retryAction = null
   emit('jump', email)
 }
 
 
-function getEmailList(refresh = false) {
-
-  if (reqLock) return;
-
-  let emailId = emailList.length > 0 ? emailList.at(-1).emailId : 0;
-
+async function getEmailList(refresh = false) {
+  if (!active) { needsRefresh = true; return }
+  if (!refresh && (reqLock || noLoading.value)) return
+  if (refresh) requestController?.abort()
+  const current = ++requestId
+  const controller = new AbortController()
+  requestController = controller
+  const epoch = emailStore.syncSession()
+  const valid = () => active && current === requestId && !controller.signal.aborted && epoch === emailStore.syncSession()
+  const emailId = refresh ? 0 : (emailList.at(-1)?.emailId || 0)
   reqLock = true
-
-  if (!refresh) {
-
-    if (loading.value || noLoading.value) {
-      reqLock = false
-      return
-    }
-
-  } else {
-    getSkeletonRows()
-    emailId = 0
-    loading.value = true
+  listError.value = false
+  getSkeletonRows()
+  if (refresh) {
+    emailList.length = 0
+    latestEmail.value = null
+    noLoading.value = false
     scrollTop = 0
   }
-
-  if (emailList.length === 0) {
-    loading.value = true
-  } else {
-    followLoading.value = !refresh;
-  }
-  let start = Date.now();
-
-  props.getEmailList(emailId, queryParam.size).then(async data => {
-    let end = Date.now();
-    let duration = end - start;
-    if (duration < 300 && !emailId) {
-        await sleep(300 - duration)
-    }
-    firstLoad.value = false
-
-    let list = data.list.map(item => ({
-      ...item,
-      checked: false
-    }));
-
-
-    if (refresh) {
-      emailList.length = 0
-    }
-
+  loading.value = refresh || !emailList.length
+  followLoading.value = !loading.value
+  try {
+    const data = await props.getEmailList(emailId, queryParam.size, { signal: controller.signal })
+    if (!valid()) return
+    const items = data.list.map(item => ({ ...item, checked: false }))
+    handleList(items)
+    emailList.push(...items)
     latestEmail.value = data.latestEmail
-
-    handleList(list);
-    emailList.push(...list);
-    if (refresh) scrollbarRef.value?.setScrollTop(0);
-
-    noLoading.value = data.list.length < queryParam.size;
-    followLoading.value = data.list.length >= queryParam.size;
-
-    total.value = data.total;
-  }).finally(() => {
-    loading.value = false
-    reqLock = false
-  })
+    noLoading.value = items.length < queryParam.size
+    if (data.total != null) total.value = data.total
+    firstLoad.value = false
+  } catch (error) {
+    if (valid() && !isCanceled(error)) { listError.value = true; firstLoad.value = false }
+  } finally {
+    if (valid()) { loading.value = false; followLoading.value = false; reqLock = false }
+  }
 }
 
 function handleList(list) {
@@ -924,7 +931,7 @@ function refresh() {
 function refreshList() {
   checkAll.value = false;
   isIndeterminate.value = false;
-  getEmailList(true);
+  return getEmailList(true);
 }
 
 function loadData() {

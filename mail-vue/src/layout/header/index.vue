@@ -81,7 +81,7 @@
 <script setup>
 import router from "@/router";
 import hanburger from '@/components/hamburger/index.vue'
-import {logout} from "@/request/login.js";
+import {logoutSession} from '@/utils/session.js';
 import {Icon} from "@iconify/vue";
 import {useUiStore} from "@/store/ui.js";
 import {useUserStore} from "@/store/user.js";
@@ -269,14 +269,10 @@ function changeAside() {
   uiStore.asideShow = !uiStore.asideShow
 }
 
-function clickLogout() {
+async function clickLogout() {
+  if (logoutLoading.value) return
   logoutLoading.value = true
-  logout().then(() => {
-    localStorage.removeItem("token")
-    router.replace('/login')
-  }).finally(() => {
-    logoutLoading.value = false
-  })
+  try { await logoutSession() } catch {} finally { logoutLoading.value = false }
 }
 
 function formatName(email) {

@@ -93,8 +93,10 @@
   </div>
 </template>
 <script setup>
+import {createSendAttempt} from '@/utils/send-attempt.js'
+import {endSession} from '@/utils/session.js'
 import tinyEditor from '@/components/tiny-editor/index.vue'
-import {h, nextTick, onMounted, onUnmounted, reactive, ref, toRaw, computed} from "vue";
+import {h, nextTick, onMounted, onUnmounted, watch, reactive, ref, toRaw, computed} from "vue";
 import {Icon} from "@iconify/vue";
 import {useUserStore} from "@/store/user.js";
 import {emailSend} from "@/request/email.js";
@@ -119,7 +121,8 @@ defineExpose({
   open,
   openReply,
   openForward,
-  openDraft
+  openDraft,
+  clearSession
 })
 
 const {t} = useI18n()
@@ -145,6 +148,9 @@ const backReply = reactive({
   content: '',
   sendType: ''
 })
+const sendAttempt = createSendAttempt()
+let composeGeneration = 0
+watch(() => emailStore.generation, () => clearSession(), { flush: 'sync' })
 const form = reactive({
   sendEmail: '',
   receiveEmail: [],
@@ -351,9 +357,14 @@ async function sendEmail() {
 
   show.value = false
 
-  emailSend(form, (e) => {
+  const epoch = emailStore.syncSession(), operation = composeGeneration
+  const payload = sendAttempt.prepare(form)
+  form.requestId = payload.requestId
+  emailSend(payload, (e) => {
     percent.value = Math.round((e.loaded * 98) / e.total)
   }).then(emailList => {
+    if (epoch !== emailStore.syncSession() || operation !== composeGeneration) return
+    sendAttempt.reset()
     const email = emailList[0]
     emailList.forEach(item => {
       emailStore.sendScroll?.addItem(item)
@@ -380,6 +391,12 @@ async function sendEmail() {
     show.value = false
     resetForm();
   }).catch((e) => {
+    if (epoch !== emailStore.syncSession() || operation !== composeGeneration) return
+    // Only a confirmed not-sent result permits a new attempt for the same payload.
+    if (e.code === 424) {
+      sendAttempt.reset()
+      form.requestId = ''
+    }
     ElNotification({
       title: t('sendFailMsg'),
       type: e.code === 403 ? 'warning' : 'error',
@@ -387,8 +404,8 @@ async function sendEmail() {
       position: 'bottom-right'
     })
     if (e.code === 401) {
-      localStorage.removeItem('token');
-      router.replace('/login');
+      endSession();
+      return;
     }
     show.value = true
     addRecipientRecord();
@@ -408,10 +425,20 @@ function addRecipientRecord() {
   writerStore.sendRecipientRecord = writerStore.sendRecipientRecord.slice(0, 500);
 }
 
+function clearSession() {
+  show.value = false
+  resetForm()
+}
+
 function resetForm() {
+  composeGeneration++
+  sendAttempt.reset()
+  form.requestId = ''
   form.receiveEmail = []
   form.subject = ''
   form.content = ''
+  form.text = ''
+  defValue.value = ''
   form.manyType = null
   form.attachments = []
   form.sendType = ''
@@ -421,7 +448,7 @@ function resetForm() {
   backReply.subject = ''
   backReply.receiveEmail = []
   backReply.sendType = ''
-  editor.value.clearEditor()
+  editor.value?.clearEditor?.()
 }
 
 function change(content, text) {
@@ -440,10 +467,13 @@ function openForward(email) {
 
   form.subject = email.subject
   form.sendType = 'forward'
+  form.emailId = email.emailId
 
   defValue.value = ''
+  const operation = composeGeneration, epoch = emailStore.syncSession()
 
   setTimeout(() => {
+    if (operation !== composeGeneration || epoch !== emailStore.syncSession()) return
     defValue.value = `
       ${formatImage(email.content) || `<pre style="font-family: inherit;word-break: break-word;white-space: pre-wrap;margin: 0">${email.text}</pre>`}
     `
@@ -475,8 +505,10 @@ function openReply(email) {
   form.emailId = email.emailId
 
   defValue.value = ''
+  const operation = composeGeneration, epoch = emailStore.syncSession()
 
   setTimeout(() => {
+    if (operation !== composeGeneration || epoch !== emailStore.syncSession()) return
     defValue.value = `
     <div></div>
     <div>
@@ -521,9 +553,11 @@ function open() {
 }
 
 function openDraft(draft) {
+  resetForm()
   Object.assign(form, {...draft})
   defValue.value = ''
-  setTimeout(() => defValue.value = form.content)
+  const operation = composeGeneration
+  setTimeout(() => { if (operation === composeGeneration) defValue.value = form.content })
   show.value = true;
   editor.value.focus()
 }
@@ -539,6 +573,7 @@ onMounted(() => {
 });
 
 onUnmounted(() => {
+  composeGeneration++
   window.removeEventListener('keydown', handleKeyDown);
 });
 

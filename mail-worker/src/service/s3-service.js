@@ -2,6 +2,7 @@ import { S3Client, PutObjectCommand, DeleteObjectsCommand, GetObjectCommand } fr
 import settingService from './setting-service';
 import domainUtils from '../utils/domain-uitls';
 import { settingConst } from '../const/entity-const';
+import { normalizeContentDisposition } from '../utils/content-disposition';
 const s3Service = {
 
 	async putObj(c, key, content, metadata) {
@@ -65,7 +66,7 @@ const s3Service = {
 		);
 
 
-		await client.send(
+		const result = await client.send(
 			new DeleteObjectsCommand({
 				Bucket: bucket,
 				Delete: {
@@ -73,6 +74,14 @@ const s3Service = {
 				}
 			})
 		);
+		// S3 reports per-key failures in an HTTP 200 response. Surface them so
+		// durable cleanup retains the failed keys instead of acknowledging deletion.
+		if (result.Errors?.length) {
+			const error = new Error(`S3 object deletion failed: ${result.Errors.map(item => `${item.Key}: ${item.Code || 'UnknownError'}`).join('; ')}`);
+			error.name = 'S3DeleteObjectsError';
+			error.errors = result.Errors;
+			throw error;
+		}
 	},
 
 	async getObj(c, key) {
@@ -83,10 +92,11 @@ const s3Service = {
 			Key: key
 		}));
 
+		const disposition = normalizeContentDisposition(result.ContentDisposition);
 		return new Response(result.Body, {
 			headers: {
 				'Content-Type': result.ContentType || 'application/octet-stream',
-				'Content-Disposition': result.ContentDisposition || null,
+				...(disposition ? { 'Content-Disposition': disposition } : {}),
 				'Cache-Control': result.CacheControl || null
 			}
 		});

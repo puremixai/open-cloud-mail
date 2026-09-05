@@ -1,4 +1,7 @@
+import { daySendCount } from '../service/mail-operation-service';
+
 const analysisDao = {
+	daySendCount,
 	async numberCount(c) {
 		const { results } = await c.env.db.prepare(`
             SELECT

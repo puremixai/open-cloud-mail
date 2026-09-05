@@ -321,7 +321,7 @@ import { useEmailStore } from '@/store/email.js'
 import { useSettingStore } from '@/store/setting.js'
 import { useUserStore } from '@/store/user.js'
 import { hasPerm } from '@/perm/perm.js'
-import { logout } from '@/request/login.js'
+import { logoutSession } from '@/utils/session.js'
 
 const { t } = useI18n()
 const route = useRoute()
@@ -737,11 +737,8 @@ function showAbout() {
   )
 }
 
-function clickLogout() {
-  logout().then(() => {
-    localStorage.removeItem('token')
-    router.replace('/login')
-  })
+async function clickLogout() {
+  try { await logoutSession() } catch {}
 }
 
 function tick() {

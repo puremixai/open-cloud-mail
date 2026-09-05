@@ -192,7 +192,26 @@ const accountService = {
 
 	async physicsDeleteByUserIds(c, userIds) {
 		await emailService.physicsDeleteUserIds(c, userIds);
-		await orm(c).delete(account).where(inArray(account.userId,userIds)).run();
+		await this.deleteAccountRows(c, 'user_id', userIds);
+	},
+
+	async deleteAccountRows(c, field, ids) {
+		if (!['account_id', 'user_id'].includes(field)) throw new Error('Invalid account ownership field');
+		const values = [...new Set(ids.map(Number).filter(Number.isSafeInteger))];
+		for (let i = 0; i < values.length; i += 80) {
+			const batch = values.slice(i, i + 80);
+			const marks = batch.map(() => '?').join(',');
+			// This write competes atomically with receive-operation INSERT ... SELECT.
+			// Check every remaining email: a receipt can finish after the earlier cleanup too.
+			const results = await c.env.db.batch([
+				c.env.db.prepare(`DELETE FROM account WHERE ${field} IN (${marks})
+					AND NOT EXISTS(SELECT 1 FROM mail_operation op WHERE op.kind='receive' AND op.state='preparing'
+						AND CAST(json_extract(op.payload,'$.params.accountId') AS INTEGER)=account.account_id)
+					AND NOT EXISTS(SELECT 1 FROM email e WHERE e.account_id=account.account_id)`).bind(...batch),
+				c.env.db.prepare(`SELECT account_id FROM account WHERE ${field} IN (${marks}) LIMIT 1`).bind(...batch),
+			]);
+			if (results[1].results.length) throw new BizError('Mail changed during account deletion; retry after recovery', 409);
+		}
 	},
 
 	async selectUserAccountCountList(c, userIds, del = isDel.NORMAL) {
@@ -257,7 +276,7 @@ const accountService = {
 	async physicsDelete(c, params) {
 		const { accountId } = params
 		await emailService.physicsDeleteByAccountId(c, accountId)
-		await orm(c).delete(account).where(eq(account.accountId, accountId)).run();
+		await this.deleteAccountRows(c, 'account_id', [accountId]);
 	},
 
 	async setAllReceive(c, params, userId) {

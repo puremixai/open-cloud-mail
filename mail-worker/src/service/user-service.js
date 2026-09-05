@@ -110,10 +110,22 @@ const userService = {
 	async physicsDelete(c, params) {
 		let { userIds } = params;
 		userIds = userIds.split(',').map(Number);
-		await starService.removeByUserIds(c, userIds);
 		await accountService.physicsDeleteByUserIds(c, userIds);
+		await starService.removeByUserIds(c, userIds);
 		await oauthService.deleteByUserIds(c, userIds);
-		await orm(c).delete(user).where(inArray(user.userId, userIds)).run();
+		for (let i = 0; i < userIds.length; i += 80) {
+			const batch = userIds.slice(i, i + 80);
+			const marks = batch.map(() => '?').join(',');
+			const results = await c.env.db.batch([
+				c.env.db.prepare(`DELETE FROM user WHERE user_id IN (${marks})
+					AND NOT EXISTS(SELECT 1 FROM mail_operation op WHERE op.kind='receive' AND op.state='preparing'
+						AND CAST(json_extract(op.payload,'$.params.userId') AS INTEGER)=user.user_id)
+					AND NOT EXISTS(SELECT 1 FROM email e WHERE e.user_id=user.user_id)
+					AND NOT EXISTS(SELECT 1 FROM account a WHERE a.user_id=user.user_id)`).bind(...batch),
+				c.env.db.prepare(`SELECT user_id FROM user WHERE user_id IN (${marks}) LIMIT 1`).bind(...batch),
+			]);
+			if (results[1].results.length) throw new BizError('Mail changed during user deletion; retry after recovery', 409);
+		}
 	},
 
 	async list(c, params) {
@@ -356,7 +368,12 @@ const userService = {
 		}
 		const roleList = await roleService.selectByIdsAndSendType(c, 'email:send', roleConst.sendType.DAY);
 		const roleIds = roleList.map(action => action.roleId);
-		await orm(c).update(user).set({ sendCount: 0 }).where(inArray(user.type, roleIds)).run();
+		const today = new Date().toISOString().slice(0, 10);
+		for (let i = 0; i < roleIds.length; i += 80) {
+			const batch = roleIds.slice(i, i + 80);
+			await c.env.db.prepare(`UPDATE user SET send_count=0,send_count_day=? WHERE type IN (${batch.map(() => '?').join(',')}) AND send_count_day<>?`)
+				.bind(today, ...batch, today).run();
+		}
 	},
 
 	async resetSendCount(c, params) {

@@ -102,7 +102,7 @@ import {Icon} from "@iconify/vue";
 import router from "@/router/index.js";
 import {useI18n} from 'vue-i18n';
 import {toUtc} from "@/utils/day.js";
-import {sleep} from "@/utils/time-utils.js";
+import {useMailPolling} from '@/utils/mail-polling.js';
 import {useSettingStore} from "@/store/setting.js";
 import { useRoute } from 'vue-router'
 
@@ -121,9 +121,6 @@ const mySelect = ref()
 const showBathDelete = ref(false)
 const clearLoading = ref(false)
 
-onMounted(() => {
-  latest();
-})
 
 const openSelect = () => {
   mySelect.value.toggleMenu()
@@ -283,6 +280,8 @@ function typeSelectChange() {
 
 function jumpContent(email) {
   emailStore.contentData.email = emailStore.toContentEmail(email)
+  emailStore.contentData.admin = true
+  emailStore.contentData.showUnread = false
   emailStore.contentData.delType = 'physics'
   emailStore.contentData.showStar = false
   emailStore.contentData.showReply = false
@@ -290,71 +289,24 @@ function jumpContent(email) {
 }
 
 
-function getEmailList(emailId, size) {
-  return emailStore.fetchList(full => allEmailList({emailId, size, full, ...params}))
+function getEmailList(emailId, size, options) {
+  return emailStore.fetchList(full => allEmailList({emailId, size, full, ...params}, options))
 }
 
-async function latest() {
-
-  while (true) {
-
-    let autoRefresh = settingStore.settings.autoRefresh;
-
-    await sleep(autoRefresh > 1 ? autoRefresh * 1000 : 3000);
-
-    const latestId = sysEmailScroll.value.latestEmail?.emailId
-
-    if (autoRefresh < 2) {
-      continue
-    }
-
-    if (!latestId && latestId !== 0) {
-      continue
-    }
-
-    if (route.name !== 'all-email') {
-      continue
-    }
-
-
-    if (params.type !== 'receive') {
-      continue
-    }
-
-    try {
-
-      const curTimeSort = params.timeSort
-      let list = await allEmailLatest(latestId)
-
-      if (list.length === 0) {
-        continue
-      }
-
-      if (params.type !== 'receive') {
-        continue
-      }
-
-      // 确保回来之后条件没变
-      if (params.timeSort !== curTimeSort) {
-        continue
-      }
-
-      for (let email of list) {
-
-        sysEmailScroll.value.addItem(email)
-        await sleep(50)
-
-      }
-
-    } catch (e) {
-      if (e.code === 401 || e.code === 403) {
-        settingStore.settings.autoRefresh = 0;
-      }
-      console.error(e)
-    }
-
+useMailPolling(async (signal, valid) => {
+  if (route.name !== 'all-email' || settingStore.settings.autoRefresh < 2 || params.type !== 'receive') return
+  // Filtered lists must not receive unrelated mail from the unfiltered latest endpoint.
+  if (params.userEmail || params.accountEmail || params.name || params.subject) return
+  const latestId = sysEmailScroll.value.latestEmail?.emailId
+  if (latestId == null) return
+  try {
+    const list = await allEmailLatest(latestId, { signal })
+    if (valid()) for (const email of list) sysEmailScroll.value.addItem(email)
+  } catch (error) {
+    if (valid() && [401, 403].includes(error?.code)) settingStore.settings.autoRefresh = 0
   }
-}
+}, () => Math.max(3, settingStore.settings.autoRefresh || 0) * 1000,
+() => JSON.stringify([route.name, emailStore.generation, params, settingStore.settings.autoRefresh]))
 
 </script>
 <style>

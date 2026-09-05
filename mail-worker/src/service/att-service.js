@@ -1,3 +1,6 @@
+import BizError from '../error/biz-error';
+import { contentDisposition } from '../utils/content-disposition';
+import { contentIdentity, recoverObjectCleanup } from './mail-operation-service';
 import orm from '../entity/orm';
 import { att } from '../entity/att';
 import { and, eq, isNull, inArray, desc } from 'drizzle-orm';
@@ -12,26 +15,48 @@ import settingService from "./setting-service";
 
 const attService = {
 
-	async addAtt(c, attachments) {
-
-		for (let attachment of attachments) {
-
-			let metadate = {
-				contentType: attachment.mimeType,
+	async validateSendAttachments(c, attachments) {
+		if (!Array.isArray(attachments) || attachments.length > 10) throw new BizError('At most 10 attachments are allowed', 400);
+		const normalized = [];
+		let total = 0;
+		for (const attachment of attachments) {
+			if (!attachment || typeof attachment.filename !== 'string' || !attachment.filename || /[\r\n]/.test(attachment.filename)) throw new BizError('Invalid attachment filename', 400);
+			let content = attachment.content;
+			if (typeof content === 'string') {
+				content = content.replace(/^data:[^,]*;base64,/, '').replace(/\s/g, '');
+				if (!/^(?:[A-Za-z0-9+/]{4})*(?:[A-Za-z0-9+/]{2}==|[A-Za-z0-9+/]{3}=)?$/.test(content)) throw new BizError('Invalid attachment content', 400);
+				content = fileUtils.base64ToUint8Array(content);
 			}
-
-			if (!attachment.contentId) {
-				metadate.contentDisposition = `attachment;filename=${attachment.filename}`
-			} else {
-				metadate.contentDisposition = `inline;filename=${attachment.filename}`
-				metadate.cacheControl = `max-age=259200`
-			}
-
-			await r2Service.putObj(c, attachment.key, attachment.content, metadate);
-
+			if (content instanceof ArrayBuffer) content = new Uint8Array(content);
+			if (!(content instanceof Uint8Array)) throw new BizError('Attachment content is missing', 400);
+			total += content.byteLength;
+			if (total > 20 * 1024 * 1024) throw new BizError('Attachments exceed 20 MiB', 400);
+			const mimeType = attachment.mimeType || attachment.contentType || attachment.type || 'application/octet-stream';
+			if (typeof mimeType !== 'string' || /[\r\n]/.test(mimeType)) throw new BizError('Invalid attachment type', 400);
+			normalized.push({ ...attachment, content, buff: content, size: content.byteLength, mimeType });
 		}
+		return normalized;
+	},
 
-		await orm(c).insert(att).values(attachments).run();
+	async addAtt(c, attachments) {
+		// Persist references BEFORE storage writes. An interrupted upload remains recoverable.
+		for (let index = 0; index < attachments.length; index++) {
+			const attachment = attachments[index];
+			const slot = attachment.operationSlot ?? await contentIdentity(JSON.stringify([index, attachment.key, attachment.filename, attachment.contentId]));
+			await c.env.db.prepare(`INSERT INTO attachments(user_id,email_id,account_id,key,filename,mime_type,size,disposition,related,content_id,encoding,type,operation_slot)
+				VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?) ON CONFLICT(email_id,operation_slot) DO NOTHING`).bind(
+				attachment.userId, attachment.emailId, attachment.accountId, attachment.key, attachment.filename ?? null,
+				attachment.mimeType ?? null, attachment.size ?? attachment.content?.byteLength ?? 0, attachment.disposition ?? null,
+				attachment.related == null ? null : String(attachment.related), attachment.contentId ?? null, attachment.encoding ?? null,
+				typeof attachment.type === 'number' ? attachment.type : attConst.type.ATT, String(slot)
+			).run();
+		}
+		for (const attachment of attachments) {
+			await r2Service.putObj(c, attachment.key, attachment.content, {
+				contentType: attachment.mimeType || 'application/octet-stream',
+				contentDisposition: contentDisposition(attachment.filename, attachment.contentId ? 'inline' : 'attachment'),
+			});
+		}
 	},
 
 	list(c, params, userId) {
@@ -47,7 +72,7 @@ const attService = {
 		).all();
 	},
 
-	async toImageUrlHtml(c, content) {
+	async toImageUrlHtml(c, content, userId = c.get?.('user')?.userId) {
 
 		const { r2Domain } = await settingService.query(c);
 
@@ -81,26 +106,19 @@ const attService = {
 				imageDataList.push(attData);
 			}
 
-			//邮件正文站内图片转cid附件
-			if (src && (src.startsWith(domainUtils.toOssDomain(r2Domain)) || src.startsWith('attachments/'))) {
-
-				const cid = uuidv4().replace(/-/g, '')
+			// Detail URLs carry short-lived capabilities. Resolve to owned bytes before forwarding.
+			let key;
+			if (src?.startsWith('attachments/')) key = src.split('?')[0];
+			if (src && r2Domain && src.startsWith(domainUtils.toOssDomain(r2Domain) + '/attachments/')) key = src.slice((domainUtils.toOssDomain(r2Domain) + '/').length).split('?')[0];
+			if (src && /\/api\/oss\/attachments\//.test(src)) {
+				const url = new URL(src, c.req?.url || 'https://mail.invalid');
+				if (c.req?.url && url.origin !== new URL(c.req.url).origin) throw new BizError('Invalid inline attachment origin', 400);
+				key = decodeURIComponent(url.pathname.slice('/api/oss/'.length));
+			}
+			if (key) {
+				const cid = uuidv4().replace(/-/g, '');
 				img.setAttribute('src', 'cid:' + cid);
-
-				const attData = {};
-
-				if (src.startsWith(domainUtils.toOssDomain(r2Domain))) {
-					attData.key = src.replace(domainUtils.toOssDomain(r2Domain) + '/','');
-				}
-
-				if (src.startsWith('attachments/')) {
-					attData.key = src;
-				}
-
-				attData.contentId = cid;
-				attData.type = attConst.type.EMBED;
-				imageDataList.push(attData);
-
+				imageDataList.push({ key, contentId: cid, type: attConst.type.EMBED });
 			}
 
 			const hasInlineWidth = img.hasAttribute('width');
@@ -115,7 +133,7 @@ const attService = {
 
 		//查询已有内嵌url图片信息
 		const keys = [...new Set(imageDataList.filter(item => !item.content).map(item => item.key))];
-		const dbImageList  = await this.selectOneByKeys(c, keys);
+		const dbImageList = keys.length ? await orm(c).select().from(att).where(and(inArray(att.key, keys), eq(att.userId, userId ?? -1))).all() : [];
 
 		//设置给当前附件
 		await Promise.all(imageDataList.map(async image => {
@@ -124,9 +142,7 @@ const attService = {
 			}
 
 			const dbImage = dbImageList.find(dbImage => image.key === dbImage.key);
-			if (!dbImage) {
-				return;
-			}
+			if (!dbImage) throw new BizError('Inline attachment is missing or not owned by this user', 403);
 
 			image.size = dbImage.size;
 			image.filename = dbImage.filename;
@@ -134,9 +150,7 @@ const attService = {
 			image.contentType = dbImage.mimeType;
 
 			const obj = await r2Service.getObj(c, image.key);
-			if (!obj) {
-				return;
-			}
+			if (!obj) throw new BizError('Inline attachment content is missing', 400);
 
 			image.content = obj instanceof ArrayBuffer ? obj : await obj.arrayBuffer();
 		}))
@@ -167,7 +181,7 @@ const attService = {
 		for (let att of attList) {
 			await r2Service.putObj(c, att.key, att.buff, {
 				contentType: att.type,
-				contentDisposition: `attachment;filename=${att.filename}`
+				contentDisposition: contentDisposition(att.filename)
 			});
 		}
 
@@ -186,7 +200,7 @@ const attService = {
 			await r2Service.putObj(c, attData.key, attData.buff, {
 				contentType: attData.mimeType,
 				cacheControl: `max-age=259200`,
-				contentDisposition: `inline;filename=${attData.filename}`
+				contentDisposition: contentDisposition(attData.filename, 'inline')
 			});
 			delete attData.buff;
 		}
@@ -213,41 +227,16 @@ const attService = {
 	},
 
 	async removeAttByField(c, fieldName, fieldValues) {
-
-		const sqlList = [];
-
-		fieldValues.forEach(value => {
-
-			sqlList.push(
-
-				c.env.db.prepare(
-					`SELECT a.key, a.att_id
-						FROM attachments a
-							   JOIN (SELECT key
-									 FROM attachments
-									 GROUP BY key
-									 HAVING COUNT (*) = 1) t
-									ON a.key = t.key
-						WHERE a.${fieldName} = ?;`
-					).bind(value)
-			)
-
-			sqlList.push(c.env.db.prepare(`DELETE FROM attachments WHERE ${fieldName} = ?`).bind(value))
-
-		});
-
-		const attListResult = await c.env.db.batch(sqlList);
-
-		const delKeyList = attListResult.flatMap(r => r.results ? r.results.map(row => row.key) : []);
-
-		if (delKeyList.length > 0) {
-			try {
-				await this.batchDelete(c, delKeyList);
-			} catch (e) {
-				console.error('删除附件文件失败：', e);
-			}
+		if (!['user_id', 'email_id', 'account_id'].includes(fieldName)) throw new Error('Invalid attachment field');
+		for (let i = 0; i < fieldValues.length; i += 80) {
+			const values = fieldValues.slice(i, i + 80);
+			const marks = values.map(() => '?').join(',');
+			await c.env.db.batch([
+				c.env.db.prepare(`INSERT OR IGNORE INTO mail_object_cleanup(key) SELECT key FROM attachments WHERE ${fieldName} IN (${marks})`).bind(...values),
+				c.env.db.prepare(`DELETE FROM attachments WHERE ${fieldName} IN (${marks})`).bind(...values),
+			]);
 		}
-
+		await recoverObjectCleanup(c);
 	},
 
 	async batchDelete(c, keys) {

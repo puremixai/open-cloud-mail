@@ -36,6 +36,7 @@ const requirePerms = [
 	'/role/set',
 	'/role/setDefault',
 	'/allEmail/list',
+	'/allEmail/detail',
 	'/allEmail/delete',
 	'/allEmail/batchDelete',
 	'/allEmail/latest',
@@ -79,7 +80,7 @@ const premKey = {
 	'user:set-status': ['/user/setStatus', '/user/restore'],
 	'user:set-type': ['/user/setType'],
 	'user:delete': ['/user/delete','/user/deleteAccount'],
-	'all-email:query': ['/allEmail/list','/allEmail/latest'],
+	'all-email:query': ['/allEmail/list','/allEmail/latest','/allEmail/detail'],
 	'all-email:delete': ['/allEmail/delete','/allEmail/batchDelete'],
 	'setting:query': ['/setting/query'],
 	'setting:set': ['/setting/set', '/setting/setBackground','/setting/deleteBackground','/setting/setBlacklist'],
@@ -94,18 +95,18 @@ app.use('*', async (c, next) => {
 	const path = c.req.path;
 
 	const index = exclude.findIndex(item => {
-		return path.startsWith(item);
+		return path === item || path.startsWith(item + '/');
 	});
 
 	if (index > -1) {
 		return await next();
 	}
 
-	if (path.startsWith('/public')) {
+	if (path === '/public' || path.startsWith('/public/')) {
 
 		const userPublicToken = await c.env.kv.get(KvConst.PUBLIC_KEY);
 		const publicToken = c.req.header(constant.TOKEN_HEADER);
-		if (publicToken !== userPublicToken) {
+		if (!publicToken || !userPublicToken || publicToken !== userPublicToken) {
 			throw new BizError(t('publicTokenFail'), 401);
 		}
 		return await next();
@@ -116,14 +117,15 @@ app.use('*', async (c, next) => {
 
 	const result = await jwtUtils.verifyToken(c, jwt);
 
-	if (!result) {
+	if (!result || result.purpose || !Number.isSafeInteger(result.userId) || result.userId <= 0
+		|| typeof result.token !== 'string' || !result.token) {
 		throw new BizError(t('authExpired'), 401);
 	}
 
 	const { userId, token } = result;
 	const authInfo = await c.env.kv.get(KvConst.AUTH_INFO + userId, { type: 'json' });
 
-	if (!authInfo) {
+	if (!authInfo?.user || !Array.isArray(authInfo.tokens)) {
 		throw new BizError(t('authExpired'), 401);
 	}
 
@@ -132,7 +134,7 @@ app.use('*', async (c, next) => {
 	}
 
 	const permIndex = requirePerms.findIndex(item => {
-		return path.startsWith(item);
+		return path === item || path.startsWith(item + '/');
 	});
 
 	if (permIndex > -1) {
@@ -142,7 +144,7 @@ app.use('*', async (c, next) => {
 		const userPaths = permKeyToPaths(permKeys);
 
 		const userPermIndex = userPaths.findIndex(item => {
-			return path.startsWith(item);
+			return path === item || path.startsWith(item + '/');
 		});
 
 		if (userPermIndex === -1 && authInfo.user.email !== c.env.admin) {

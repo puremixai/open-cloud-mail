@@ -1,10 +1,8 @@
+import { receiveOperation } from '../service/receive-operation-service';
 import PostalMime from 'postal-mime';
 import emailService from '../service/email-service';
 import accountService from '../service/account-service';
 import settingService from '../service/setting-service';
-import attService from '../service/att-service';
-import constant from '../const/constant';
-import fileUtils from '../utils/file-utils';
 import { emailConst, isDel, settingConst } from '../const/entity-const';
 import emailUtils from '../utils/email-utils';
 import roleService from '../service/role-service';
@@ -38,17 +36,9 @@ export async function email(message, env, ctx) {
 			return;
 		}
 
-		const reader = message.raw.getReader();
-		let content = '';
-
-		while (true) {
-			const { done, value } = await reader.read();
-			if (done) break;
-			content += new TextDecoder().decode(value);
-		}
-
-		const email = await PostalMime.parse(content);
-
+		// Read bytes intact: MIME and UTF-8 characters can cross stream chunk boundaries.
+		const raw = await new Response(message.raw).arrayBuffer();
+		const email = await PostalMime.parse(raw);
 
 		const blockFlag = checkBlock(blackSubject, blackContent, blackFrom, email);
 
@@ -122,37 +112,8 @@ export async function email(message, env, ctx) {
 			status: emailConst.status.SAVING
 		};
 
-		const attachments = [];
-		const cidAttachments = [];
-
-		for (let item of email.attachments) {
-			let attachment = { ...item };
-			attachment.key = constant.ATTACHMENT_PREFIX + await fileUtils.getBuffHash(attachment.content) + fileUtils.getExtFileName(item.filename);
-			attachment.size = item.content.length ?? item.content.byteLength;
-			attachments.push(attachment);
-			if (attachment.contentId) {
-				cidAttachments.push(attachment);
-			}
-		}
-
-		let emailRow = await emailService.receive({ env }, params, cidAttachments, r2Domain);
-
-		attachments.forEach(attachment => {
-			attachment.emailId = emailRow.emailId;
-			attachment.userId = emailRow.userId;
-			attachment.accountId = emailRow.accountId;
-		});
-
-		try {
-			if (attachments.length > 0) {
-				await attService.addAtt({ env }, attachments);
-			}
-		} catch (e) {
-			console.error(e);
-		}
-
-		emailRow = await emailService.completeReceive({ env }, account ? emailConst.status.RECEIVE : emailConst.status.NOONE, emailRow.emailId);
-
+		const emailRow = await receiveOperation({ env }, raw, message.to, params, r2Domain);
+		if (!emailRow) return;
 
 		if (ruleType === settingConst.ruleType.RULE) {
 

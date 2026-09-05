@@ -43,7 +43,7 @@ const params = reactive({
 })
 
 onMounted(() => {
-  emailStore.sendScroll = sendScroll;
+  emailStore.sendScroll = sendScroll.value;
 })
 
 watch(() => accountStore.currentAccountId, () => {
@@ -57,6 +57,8 @@ function changeTimeSort() {
 
 function jumpContent(email) {
   emailStore.contentData.email = emailStore.toContentEmail(email)
+  emailStore.contentData.admin = false
+  emailStore.contentData.showUnread = false
   emailStore.contentData.delType = 'logic'
   emailStore.contentData.showStar = true
   emailStore.contentData.showReply = true
@@ -71,12 +73,13 @@ function cancelStar(email) {
   emailStore.starScroll?.deleteEmail([email.emailId])
 }
 
-function getEmailList(emailId, size) {
+function getEmailList(emailId, size, options) {
   const accountId =  accountStore.currentAccountId;
   const allReceive = accountStore.currentAccount.allReceive;
   return emailStore.fetchList(full =>
-    emailList(accountId, allReceive, emailId, params.timeSort, size, 1, full)
+    emailList(accountId, allReceive, emailId, params.timeSort, size, 1, full, options)
   ).then(data => {
+    data.latestEmail ||= { emailId: 0 }
     data.latestEmail.reqAccountId = accountId;
     data.latestEmail.allReceive = allReceive;
     return data;

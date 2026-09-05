@@ -1,3 +1,5 @@
+import { normalizeContentDisposition } from '../utils/content-disposition';
+
 const kvObjService = {
 
 	async putObj(c, key, content, metadata) {
@@ -23,10 +25,11 @@ const kvObjService = {
 			return null;
 		}
 
+		const disposition = normalizeContentDisposition(obj.metadata?.contentDisposition);
 		return new Response(obj.value, {
 			headers: {
 				'Content-Type': obj.metadata?.contentType || 'application/octet-stream',
-				'Content-Disposition': obj.metadata?.contentDisposition || null,
+				...(disposition ? { 'Content-Disposition': disposition } : {}),
 				'Cache-Control': obj.metadata?.cacheControl || null
 			}
 		});

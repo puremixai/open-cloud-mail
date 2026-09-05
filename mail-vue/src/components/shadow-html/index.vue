@@ -1,154 +1,140 @@
 <template>
   <div class="content-box" ref="contentBox">
+    <button v-if="hasRemoteImages && !allowRemoteImages" type="button" class="load-images" @click="loadExternalImages">
+      {{ loadImagesLabel }}
+    </button>
     <div ref="container" class="content-html"></div>
   </div>
 </template>
 
 <script setup>
-import { ref, onMounted, onBeforeUnmount, watch } from 'vue'
+import { computed, ref, onMounted, onBeforeUnmount, watch } from 'vue'
+import { useI18n } from 'vue-i18n'
+import { sanitizeMailHtml } from '@/utils/mail-html.js'
 
 const props = defineProps({
-  html: {
-    type: String,
-    required: true
-  }
+  html: { type: String, required: true },
+  // Supply mailId (or key the component by mail ID) to reset identical bodies.
+  mailId: { type: [String, Number], default: undefined }
 })
-
+const { locale } = useI18n({ useScope: 'global' })
+const loadImagesLabel = computed(() => /^zh(?:[-_]|$)/i.test(locale.value)
+  ? '加载外部图片' : 'Load external images')
 const container = ref(null)
 const contentBox = ref(null)
+const hasRemoteImages = ref(false)
+const allowRemoteImages = ref(false)
 let shadowRoot = null
+let shadowContent = null
+let resizeObserver = null
+
+// This stylesheet is application-owned. Email stylesheets never enter the root.
+const BASE_STYLE = `
+  :host {
+    all: initial;
+    display: block;
+    font-family: -apple-system, Inter, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+    font-size: 14px;
+    line-height: 1.5;
+    color: #13181D;
+    word-break: break-word;
+  }
+  h1, h2, h3, h4 { font-size: 18px; font-weight: 700; }
+  p { margin: 0; }
+  a { text-decoration: none; color: #0E70DF; }
+  .shadow-content {
+    display: flow-root;
+    background: #fff;
+    width: fit-content;
+    height: fit-content;
+    min-width: 100%;
+  }
+  img:not(table img) { max-width: 100%; height: auto !important; }
+`
 
 function updateContent() {
-  if (!shadowRoot) return;
-
-  // 1. 提取 <body> 的 style 属性（如果存在）
-  const bodyStyleRegex = /<body[^>]*style="([^"]*)"[^>]*>/i;
-  const bodyStyleMatch = props.html.match(bodyStyleRegex);
-  const bodyStyle = bodyStyleMatch ? bodyStyleMatch[1] : '';
-
-  // 2. 移除 <body> 标签（保留内容）
-  const cleanedHtml = props.html.replace(/<\/?body[^>]*>/gi, '');
-
-  // 3. 将 body 的 style 应用到 .shadow-content
-  shadowRoot.innerHTML = `
-    <style>
-      :host {
-        all: initial;
-        width: 100%;
-        height: 100%;
-        font-family: -apple-system, Inter, BlinkMacSystemFont,
-                    'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
-        font-size: 14px;
-        line-height: 1.5;
-        color: #13181D;
-        word-break: break-word;
-      }
-
-      h1, h2, h3, h4 {
-          font-size: 18px;
-          font-weight: 700;
-      }
-
-      p {
-        margin: 0;
-      }
-
-      a {
-        text-decoration: none;
-        color: #0E70DF;
-      }
-
-      .shadow-content {
-        background: #FFFFFF;
-        width: fit-content;
-        height: fit-content;
-        min-width: 100%;
-        ${bodyStyle ? bodyStyle : ''} /* 注入 body 的 style */
-      }
-
-      img:not(table img) {
-        max-width: 100%;
-        height: auto !important;
-      }
-
-    </style>
-    <div class="shadow-content">
-      ${cleanedHtml}
-    </div>
-  `;
+  if (!shadowRoot) return
+  resizeObserver?.disconnect()
+  const result = sanitizeMailHtml(props.html, { allowRemoteImages: allowRemoteImages.value })
+  hasRemoteImages.value = result.hasRemoteImages
+  const style = document.createElement('style')
+  style.textContent = BASE_STYLE
+  shadowContent = document.createElement('div')
+  shadowContent.className = 'shadow-content'
+  shadowContent.style.cssText = result.bodyStyle
+  shadowContent.append(result.fragment)
+  shadowRoot.replaceChildren(style, shadowContent)
+  resizeObserver?.observe(contentBox.value)
+  resizeObserver?.observe(shadowContent)
+  autoScale()
 }
 
 function autoScale() {
-  if (!shadowRoot || !contentBox.value) return
-
-  const parent = contentBox.value
-  const shadowContent = shadowRoot.querySelector('.shadow-content')
-
-  if (!shadowContent) return
-
-  const parentWidth = parent.offsetWidth
+  if (!shadowRoot || !shadowContent || !contentBox.value) return
+  const host = shadowRoot.host
+  const parentWidth = contentBox.value.offsetWidth
   const childWidth = shadowContent.scrollWidth
   const childHeight = shadowContent.scrollHeight
-
-  if (childWidth === 0) return
-
-  const scale = Math.min(1, parentWidth / childWidth)
-  const hostElement = shadowRoot.host
-
-  /* 用 transform 代替 zoom 做等比缩放：
-     zoom 会导致浏览器选区命中错位，邮件正文无法用鼠标选中；
-     transform 下选择正常，但布局尺寸不会跟随缩放，需要手动把
-     宿主的布局宽高补偿为缩放后的可视大小，外层滚动范围才正确 */
-  if (scale < 1) {
-    hostElement.style.transformOrigin = '0 0'
-    hostElement.style.transform = `scale(${scale})`
-    hostElement.style.width = `${parentWidth}px`
-    hostElement.style.height = `${Math.ceil(childHeight * scale)}px`
-  } else {
-    hostElement.style.transform = ''
-    hostElement.style.width = ''
-    hostElement.style.height = ''
-  }
+  const scale = parentWidth > 0 && childWidth > 0 ? Math.min(1, parentWidth / childWidth) : 1
+  // Transform preserves mouse text selection; compensate the host layout height.
+  host.style.transformOrigin = '0 0'
+  host.style.transform = scale < 1 ? `scale(${scale})` : ''
+  host.style.width = scale < 1 ? `${parentWidth}px` : ''
+  host.style.height = scale < 1 ? `${Math.ceil(childHeight * scale)}px` : ''
 }
 
-let resizeObserver = null
+function loadExternalImages() {
+  allowRemoteImages.value = true
+  updateContent()
+}
 
 onMounted(() => {
   shadowRoot = container.value.attachShadow({ mode: 'open' })
+  if (typeof ResizeObserver !== 'undefined') resizeObserver = new ResizeObserver(autoScale)
+  // Capturing load/error also covers image overflow that does not resize its box.
+  shadowRoot.addEventListener('load', autoScale, true)
+  shadowRoot.addEventListener('error', autoScale, true)
+  window.addEventListener('resize', autoScale)
   updateContent()
-  autoScale()
-  /* 图片等异步资源加载后会改变内容实际尺寸，transform 缩放不会自动重排，
-     监听内容尺寸变化后重新计算缩放和宿主布局高度 */
-  const shadowContent = shadowRoot.querySelector('.shadow-content')
-  if (shadowContent) {
-    resizeObserver = new ResizeObserver(() => autoScale())
-    resizeObserver.observe(shadowContent)
-  }
 })
 
 onBeforeUnmount(() => {
-  if (resizeObserver) {
-    resizeObserver.disconnect()
-    resizeObserver = null
-  }
+  resizeObserver?.disconnect()
+  shadowRoot?.removeEventListener('load', autoScale, true)
+  shadowRoot?.removeEventListener('error', autoScale, true)
+  window.removeEventListener('resize', autoScale)
+  shadowRoot = null
+  shadowContent = null
 })
 
-watch(() => props.html, () => {
+watch(() => [props.html, props.mailId], () => {
+  allowRemoteImages.value = false
   updateContent()
-  autoScale()
-})
+}, { flush: 'post' })
 </script>
 
 <style scoped>
 .content-box {
   width: 100%;
-  height: 100%;
   overflow: hidden;
-  font-family: -apple-system, Inter, BlinkMacSystemFont, "Segoe UI", "Noto Sans", Helvetica, Arial, sans-serif, "Apple Color Emoji", "Segoe UI Emoji";
+  position: relative;
+  isolation: isolate;
+  contain: paint;
+  font-family: -apple-system, Inter, BlinkMacSystemFont, "Segoe UI", "Noto Sans", Helvetica, Arial, sans-serif;
 }
 
 .content-html {
   width: 100%;
-  height: 100%;
+}
+
+.load-images {
+  margin: 0 0 12px;
+  padding: 6px 12px;
+  border: 1px solid #c7d4e5;
+  border-radius: 4px;
+  background: #f4f8fd;
+  color: #0e70df;
+  font: inherit;
+  cursor: pointer;
 }
 </style>

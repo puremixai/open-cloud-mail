@@ -6,6 +6,7 @@ on:
     paths:
       - "mail-worker/**"
       - "mail-vue/**"
+      - ".github/workflows/**"
   workflow_dispatch:
 
 jobs:
@@ -53,6 +54,18 @@ jobs:
       - name: 📦 安装依赖 / Install dependencies
         run: pnpm install --frozen-lockfile
         working-directory: ./mail-worker
+
+      - name: Test Worker before deployment
+        run: pnpm run test:unit
+        working-directory: ./mail-worker
+
+      - name: Install frontend dependencies
+        run: pnpm install --frozen-lockfile
+        working-directory: ./mail-vue
+
+      - name: Test frontend before deployment
+        run: pnpm run test:unit
+        working-directory: ./mail-vue
 
       - name: 📡 禁用 Wrangler 遥测 / Disable wrangler telemetry
         working-directory: ./mail-worker
@@ -205,6 +218,10 @@ jobs:
           
           sed -i "s|\${D1_DATABASE_ID}|$D1_ID|g" "$CONFIG_FILE"
           echo "✅ Setup completed."
+
+      - name: Migrate existing mail database before activation
+        working-directory: ./mail-worker
+        run: node scripts/migrate-mail-operations.mjs --remote --config wrangler-action.toml
 
       - name: 🚀 开始部署 / Start deployment
         id: deploy

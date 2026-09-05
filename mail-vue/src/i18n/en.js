@@ -1,4 +1,9 @@
 const en = {
+    mailSelectionRequired: 'Select a message from your mail list.',
+    mailLoadFailed: 'Mail could not load. Please retry.',
+    mailDetailLoading: 'Loading full message…',
+    retry: 'Retry',
+
     inbox: 'Inbox',
     drafts: 'Drafts',
     sent: 'Sent',

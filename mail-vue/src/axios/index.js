@@ -1,121 +1,37 @@
-import axios from "axios";
-import router from "@/router";
-import i18n from "@/i18n/index.js";
-import {useSettingStore} from "@/store/setting.js";
+import axios from 'axios'
+import { ElMessage } from 'element-plus'
+import i18n from '@/i18n/index.js'
+import { useSettingStore } from '@/store/setting.js'
+import { endSession } from '@/utils/session.js'
 
-let http = axios.create({
-    baseURL: import.meta.env.VITE_BASE_URL
-});
-
+const http = axios.create({ baseURL: import.meta.env.VITE_BASE_URL, timeout: 30000 })
 http.interceptors.request.use(config => {
-    const { lang } = useSettingStore();
-    config.headers.Authorization = `${localStorage.getItem('token')}`
+    const { lang } = useSettingStore()
+    config.sessionToken = localStorage.getItem('token')
+    config.headers.Authorization = `${config.sessionToken}`
     config.headers['accept-language'] = lang
     return config
 })
-
-http.interceptors.response.use((res) => {
-
-        return new Promise((resolve, reject) => {
-
-            const noMsg = res.config.noMsg;
-            const data = res.data
-
-            if (noMsg) {
-
-                data.code === 200 ? resolve(data.data) : reject(data)
-
-            } else if (data.code === 401) {
-                ElMessage({
-                    message: data.message,
-                    type: 'error',
-                    plain: true,
-                    grouping: true,
-                    repeatNum: -4,
-                })
-                localStorage.removeItem('token')
-                router.replace('/login')
-                reject(data)
-            } else if (data.code === 403) {
-                ElMessage({
-                    message: data.message,
-                    type: 'warning',
-                    plain: true,
-                    grouping: true,
-                    repeatNum: -4,
-                })
-                reject(data)
-
-            } else if (data.code === 502) {
-                ElMessage({
-                    dangerouslyUseHTMLString: true,
-                    message: data.message,
-                    type: 'error',
-                    plain: true,
-                    grouping: true,
-                    repeatNum: -4,
-                })
-                reject(data)
-            } else if (data.code !== 200) {
-                ElMessage({
-                    message: data.message,
-                    type: 'error',
-                    plain: true,
-                    grouping: true,
-                    repeatNum: -4,
-                })
-                reject(data)
-            }
-            resolve(data.data)
-        })
-    },
-    (error) => {
-
-        if (error.status === 403) {
-            location.reload();
-            return;
-        }
-
-        const noMsg = error.config.noMsg;
-
-        if (noMsg) {
-            return Promise.reject(error)
-        } else if (error.message.includes('Network Error')) {
-            ElMessage({
-                message: i18n.global.t('networkErrorMsg'),
-                type: 'error',
-                plain: true,
-                grouping: true,
-                repeatNum: -4,
-            })
-        } else if (error.code === 'ECONNABORTED') {
-            ElMessage({
-                message: i18n.global.t('timeoutErrorMsg'),
-                type: 'error',
-                plain: true,
-                grouping: true
-            })
-            ElMessage.error('')
-        } else if (error.response) {
-            ElMessage({
-                message: i18n.global.t('serverBusyErrorMsg'),
-                type: 'error',
-                plain: true,
-                grouping: true,
-                repeatNum: -4,
-            })
-        } else {
-            ElMessage({
-                message: i18n.global.t('reqFailErrorMsg'),
-                type: 'error',
-                plain: true,
-                grouping: true,
-                repeatNum: -4,
-            })
-        }
-        return Promise.reject(error)
-    })
-
+const stale = config => config && Object.hasOwn(config, 'sessionToken') && config.sessionToken !== localStorage.getItem('token')
+const report = (message, warning = false) => ElMessage({ message, type: warning ? 'warning' : 'error', plain: true, grouping: true })
+http.interceptors.response.use(res => {
+    if (stale(res.config)) return Promise.reject(new axios.CanceledError('Session changed'))
+    const data = res.data
+    if (data?.code === 200) return data.data
+    if (data?.code === 401) void endSession(res.config.sessionToken)
+    if (!res.config?.noMsg) report(data?.message || i18n.global.t('reqFailErrorMsg'), data?.code === 403)
+    return Promise.reject(data || new Error('Invalid server response'))
+}, error => {
+    if (stale(error?.config)) return Promise.reject(new axios.CanceledError('Session changed'))
+    if (axios.isCancel(error)) return Promise.reject(error)
+    const status = error?.response?.status || error?.status
+    if (status === 401) void endSession(error?.config?.sessionToken)
+    if (!error?.config?.noMsg) {
+        const key = error?.code === 'ECONNABORTED' || error?.code === 'ETIMEDOUT' ? 'timeoutErrorMsg'
+            : error?.message?.includes('Network Error') ? 'networkErrorMsg'
+            : error?.response ? 'serverBusyErrorMsg' : 'reqFailErrorMsg'
+        report(i18n.global.t(key), status === 403)
+    }
+    return Promise.reject(error)
+})
 export default http
-
-

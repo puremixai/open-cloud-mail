@@ -29,14 +29,16 @@ const emailStore = useEmailStore();
 
 function jumpContent(email) {
   emailStore.contentData.email = emailStore.toContentEmail(email)
+  emailStore.contentData.admin = false
+  emailStore.contentData.showUnread = false
   emailStore.contentData.delType = 'logic'
   emailStore.contentData.showStar = true
   emailStore.contentData.showReply = true
   router.push('/mail')
 }
 
-function getEmailList(emailId, size) {
-  return emailStore.fetchList(full => starList(emailId, size, full))
+function getEmailList(emailId, size, options) {
+  return emailStore.fetchList(full => starList(emailId, size, full, options))
 }
 
 function cancelStar(email) {
@@ -45,7 +47,7 @@ function cancelStar(email) {
 }
 
 onMounted(() => {
-  emailStore.starScroll = scroll
+  emailStore.starScroll = scroll.value
 })
 
 </script>

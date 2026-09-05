@@ -10,8 +10,10 @@
       <Icon class="icon" v-if="emailStore.contentData.showReply" v-perm="'email:send'"  @click="openReply" icon="la:reply" width="21" height="21" />
       <Icon class="icon" v-if="emailStore.contentData.showReply" v-perm="'email:send'"  @click="openForward" icon="iconoir:arrow-up-right" width="20" height="20" />
     </div>
-    <div></div>
-    <el-scrollbar class="scrollbar">
+    <div v-if="!email.emailId" role="status">{{ t('mailSelectionRequired') }}</div>
+    <div v-if="detailLoading || attachmentLoading" role="status">{{ t('mailDetailLoading') }}</div>
+    <div v-if="detailError" role="alert">{{ t('mailLoadFailed') }} <button data-test="detail-retry" @click="retryDetail">{{ t('retry') }}</button></div>
+    <el-scrollbar v-if="detailReady" class="scrollbar">
       <el-backtop target=".scrollbar .el-scrollbar__wrap" :visibility-height="300" :right="30" :bottom="40"/>
       <div class="container">
         <div class="email-title">
@@ -36,7 +38,7 @@
             <el-alert v-if="email.status === 5" :closable="false" :title="$t('delayed')" class="email-msg" type="warning" show-icon />
           </div>
           <el-scrollbar class="htm-scrollbar" :class="!email.attList?.length ? 'bottom-distance' : ''">
-            <ShadowHtml class="shadow-html" :html="formatImage(email.content)" v-if="email.content" />
+            <ShadowHtml :mail-id="email.emailId" class="shadow-html" :html="formatImage(email.content)" v-if="email.content" />
             <pre v-else class="email-text" >{{email.text}}</pre>
           </el-scrollbar>
           <div class="att" v-if="email.attList?.length > 0">
@@ -47,16 +49,16 @@
             <div class="att-box">
 
               <div class="att-item" v-for="att in email.attList" :key="att.attId">
-                <div class="att-icon" @click="showImage(att.key)">
+                <div class="att-icon" @click="showImage(att)">
                   <Icon v-bind="getIconByName(att.filename)" />
                 </div>
-                <div class="att-name" @click="showImage(att.key)">
+                <div class="att-name" @click="showImage(att)">
                   {{ att.filename }}
                 </div>
                 <div class="att-size">{{ formatBytes(att.size) }}</div>
                 <div class="opt-icon att-icon">
-                  <Icon v-if="isImage(att.filename)" icon="hugeicons:view" width="22" height="22" @click="showImage(att.key)"/>
-                  <a :href="cvtR2Url(att.key)" download>
+                  <Icon v-if="isImage(att.filename)" icon="hugeicons:view" width="22" height="22" @click="showImage(att)"/>
+                  <a :href="att.url" :download="att.filename" @click.prevent="downloadAttachment(att)">
                     <Icon icon="system-uicons:push-down" width="22" height="22"/>
                   </a>
                 </div>
@@ -81,12 +83,12 @@ import {useRouter} from 'vue-router'
 import {ElMessage, ElMessageBox} from 'element-plus'
 import {emailDelete, emailRead} from "@/request/email.js";
 import {Icon} from "@iconify/vue";
-import {useEmailStore} from "@/store/email.js";
+import {isCanceled, useEmailStore} from "@/store/email.js";
 import {useAccountStore} from "@/store/account.js";
 import {formatDetailDate} from "@/utils/day.js";
 import {starAdd, starCancel} from "@/request/star.js";
 import {getExtName, formatBytes} from "@/utils/file-utils.js";
-import {cvtR2Url,toOssDomain} from "@/utils/convert.js";
+import {toOssDomain} from "@/utils/convert.js";
 import {getIconByName} from "@/utils/icon-utils.js";
 import {useSettingStore} from "@/store/setting.js";
 import {allEmailDelete} from "@/request/all-email.js";
@@ -111,70 +113,96 @@ const srcList = reactive([])
 
 const { t } = useI18n()
 watch(() => accountStore.currentAccountId, () => {
-  handleBack()
+  if (localStorage.getItem('token')) handleBack()
 })
 
-let readRequesting = false
-
-function tryMarkRead() {
-  if (!emailStore.contentData.showUnread || readRequesting) return
-  const current = email.value
-  if (!current?.emailId || current.unread !== EmailUnreadEnum.UNREAD) return
-
-  // 等详情数据就绪（detailMap 已写入，或正文已有内容）再标已读
-  const full = emailStore.detailMap[current.emailId]
-  const detailReady = !!full || !!(current.content || current.text)
-  if (!detailReady) return
-
-  readRequesting = true
-  const emailId = current.emailId
-  current.unread = EmailUnreadEnum.READ
-  if (emailStore.detailMap[emailId]) {
-    emailStore.detailMap[emailId].unread = EmailUnreadEnum.READ
+const detailLoading = ref(false), detailError = ref(false), detailReady = ref(false)
+const attachmentLoading = ref(false)
+let active = true, loadId = 0, composeId = 0
+let pendingCompose = null
+let attachmentId = 0, pendingAttachment = null
+const readRequests = new Set()
+const starRequests = new Set()
+function selected(id, admin, epoch) {
+  return active && epoch === emailStore.syncSession() && email.value.emailId === id && emailStore.contentData.admin === admin
+}
+async function loadDetail(force = false) {
+  const id = email.value.emailId, admin = emailStore.contentData.admin
+  if (!id) { detailReady.value = false; return }
+  const epoch = emailStore.syncSession(), operation = ++loadId
+  detailLoading.value = true
+  detailError.value = false
+  detailReady.value = false
+  try {
+    const detail = await emailStore.ensureDetail(id, { admin, force })
+    if (operation !== loadId || !selected(id, admin, epoch)) return
+    emailStore.contentData.email = detail
+    detailReady.value = true
+    markRead(detail, admin, epoch)
+    return detail
+  } catch (error) {
+    if (operation === loadId && selected(id, admin, epoch) && !isCanceled(error)) detailError.value = true
+  } finally {
+    if (operation === loadId) detailLoading.value = false
   }
-  emailStore.markListRead(emailId)
-  emailRead([emailId]).finally(() => {
-    readRequesting = false
-  })
 }
-
-watch(
-  () => [
-    email.value?.emailId,
-    email.value?.content,
-    email.value?.text,
-    emailStore.detailMap[email.value?.emailId]
-  ],
-  () => tryMarkRead(),
-  { flush: 'post' }
-)
-
-onMounted(() => {
-  tryMarkRead()
-  window.addEventListener('keydown', handleKeyDown);
-})
-
+async function markRead(detail, admin, epoch) {
+  const id = detail.emailId
+  if (admin || !emailStore.contentData.showUnread || detail.unread !== EmailUnreadEnum.UNREAD || readRequests.has(id)) return
+  readRequests.add(id)
+  try {
+    await emailRead([id])
+    if (active && epoch === emailStore.syncSession()) emailStore.markListRead(id)
+  } catch (error) {
+    if (selected(id, admin, epoch) && !isCanceled(error)) detailError.value = true
+  } finally { readRequests.delete(id) }
+}
+watch([() => email.value.emailId, () => emailStore.contentData.admin], () => {
+  composeId++
+  attachmentId++
+  pendingAttachment = null
+  attachmentLoading.value = false
+  pendingCompose = null
+  showPreview.value = false
+  srcList.length = 0
+  loadDetail()
+}, { immediate: true })
+onMounted(() => window.addEventListener('keydown', handleKeyDown))
 onUnmounted(() => {
-  emailStore.contentData.showUnread = false;
-  readRequesting = false
-  window.removeEventListener('keydown', handleKeyDown);
+  active = false
+  loadId++
+  composeId++
+  attachmentId++
+  window.removeEventListener('keydown', handleKeyDown)
 })
-
 function handleKeyDown(event) {
-  if (event.key !== 'Escape') return;
-  if (showPreview.value) return;
-  if (document.querySelector('.el-message-box')) return;
-  const writeBox = document.querySelector('.write-box');
-  if (writeBox && writeBox.offsetParent !== null) return;
-  handleBack();
+  if (event.key !== 'Escape' || showPreview.value || document.querySelector('.el-message-box')) return
+  const writeBox = document.querySelector('.write-box')
+  if (writeBox && writeBox.offsetParent !== null) return
+  handleBack()
 }
-
-function openReply() {
-  uiStore.writerRef.openReply(email.value)
+async function compose(method) {
+  const id = email.value.emailId, admin = emailStore.contentData.admin
+  const epoch = emailStore.syncSession(), operation = ++composeId
+  pendingCompose = method
+  detailLoading.value = true
+  detailError.value = false
+  try {
+    const detail = await emailStore.ensureDetail(id, { admin })
+    if (operation !== composeId || !selected(id, admin, epoch)) return
+    emailStore.contentData.email = detail
+    detailReady.value = true
+    await uiStore.writerRef[method](detail)
+    pendingCompose = null
+  } catch (error) {
+    if (operation === composeId && selected(id, admin, epoch) && !isCanceled(error)) detailError.value = true
+  } finally { if (operation === composeId) detailLoading.value = false }
 }
-
-function openForward() {
-  uiStore.writerRef.openForward(email.value)
+function openReply() { return compose('openReply') }
+function openForward() { return compose('openForward') }
+function retryDetail() {
+  if (pendingAttachment) return pendingAttachment()
+  return pendingCompose ? compose(pendingCompose) : loadDetail(true)
 }
 
 function toMessage(message) {
@@ -187,13 +215,42 @@ function formatImage(content) {
   return  content.replace(/{{domain}}/g, toOssDomain(domain) + '/');
 }
 
-function showImage(key) {
-  if (!isImage(key)) return;
-  const url = cvtR2Url(key)
-  srcList.length = 0
-  srcList.push(url)
-  showPreview.value = true
+async function useAttachment(att, download, force = false) {
+  const id = email.value.emailId, admin = emailStore.contentData.admin
+  const epoch = emailStore.syncSession(), operation = ++attachmentId
+  const key = att.key, attId = att.attId
+  if (!id || (attId == null && !key)) return
+  const current = () => operation === attachmentId && selected(id, admin, epoch)
+  attachmentLoading.value = true
+  detailError.value = false
+  pendingAttachment = () => useAttachment(att, download, true)
+  try {
+    // A long-open page may retain expired capabilities after the detail cache TTL.
+    const detail = await emailStore.ensureDetail(id, { admin, force })
+    if (!current()) return
+    const fresh = detail.attList.find(item =>
+      (attId == null || String(item.attId) === String(attId)) && (!key || item.key === key))
+    if (!fresh?.url) throw new Error('Attachment is no longer available')
+    emailStore.contentData.email = detail
+    if (download) {
+      const anchor = document.createElement('a')
+      anchor.href = fresh.url
+      anchor.download = fresh.filename || ''
+      document.body.appendChild(anchor)
+      try { anchor.click() } finally { anchor.remove() }
+    } else {
+      srcList.splice(0, srcList.length, fresh.url)
+      showPreview.value = true
+    }
+    pendingAttachment = null
+  } catch (error) {
+    if (current() && !isCanceled(error)) detailError.value = true
+  } finally {
+    if (operation === attachmentId) attachmentLoading.value = false
+  }
 }
+function downloadAttachment(att) { return useAttachment(att, true) }
+function showImage(att) { if (isImage(att.filename)) return useAttachment(att, false) }
 
 function isImage(filename) {
   return ['png', 'jpg', 'jpeg', 'bmp', 'gif','jfif'].includes(getExtName(filename))
@@ -205,29 +262,29 @@ function formateReceive(recipient) {
   return recipient.map(item => item.address).join(', ')
 }
 
-function changeStar() {
-  if (email.value.isStar) {
-    email.value.isStar = 0;
-    starCancel(email.value.emailId).then(() => {
-      email.value.isStar = 0;
-      emailStore.cancelStarEmailId = email.value.emailId
-      setTimeout(() => emailStore.cancelStarEmailId = 0)
-      emailStore.starScroll?.deleteEmail([email.value.emailId])
-    }).catch((e) => {
-      console.error(e)
-      email.value.isStar = 1;
-    })
-  } else {
-    email.value.isStar = 1;
-    starAdd(email.value.emailId).then(() => {
-      email.value.isStar = 1;
-      emailStore.addStarEmailId = email.value.emailId
-      setTimeout(() => emailStore.addStarEmailId = 0)
-      emailStore.starScroll?.addItem(email.value)
-    }).catch((e) => {
-      console.error(e)
-      email.value.isStar = 0;
-    })
+async function changeStar() {
+  const current = email.value, id = current.emailId
+  if (!id || starRequests.has(id)) return
+  const mutation = emailStore.beginStarMutation(id)
+  const before = current.isStar || 0, after = before ? 0 : 1
+  starRequests.add(id)
+  emailStore.updateEmail(id, { isStar: after })
+  try {
+    await (after ? starAdd(id) : starCancel(id))
+    if (!emailStore.isCurrentStarMutation(mutation)) return
+    emailStore.updateEmail(id, { isStar: after })
+    if (after) {
+      emailStore.addStarEmailId = id
+      emailStore.starScroll?.addItem({ ...current, isStar: after })
+    } else {
+      emailStore.cancelStarEmailId = id
+      emailStore.starScroll?.deleteEmail([id])
+    }
+  } catch (error) {
+    if (emailStore.isCurrentStarMutation(mutation)) emailStore.updateEmail(id, { isStar: before })
+  } finally {
+    starRequests.delete(id)
+    emailStore.finishStarMutation(mutation)
   }
 }
 
@@ -235,35 +292,24 @@ const handleBack = () => {
   router.back()
 }
 
-const handleDelete = () => {
-  ElMessageBox.confirm(t('delEmailConfirm'), {
-    confirmButtonText: t('confirm'),
-    cancelButtonText: t('cancel'),
-    type: 'warning'
-  }).then(() => {
-    if (emailStore.contentData.delType === 'logic') {
-      emailDelete(email.value.emailId).then(() => {
-        ElMessage({
-          message: t('delSuccessMsg'),
-          type: 'success',
-          plain: true,
-        })
-        emailStore.deleteIds = [email.value.emailId]
-      })
-    } else  {
-
-      allEmailDelete(email.value.emailId).then(() => {
-        ElMessage({
-          message: t('delSuccessMsg'),
-          type: 'success',
-          plain: true,
-        })
-        emailStore.deleteIds = [email.value.emailId]
-      })
-    }
-
-    router.back()
-  })
+const handleDelete = async () => {
+  const id = email.value.emailId, admin = emailStore.contentData.admin
+  const epoch = emailStore.syncSession()
+  if (!id) return
+  try {
+    await ElMessageBox.confirm(t('delEmailConfirm'), {
+      confirmButtonText: t('confirm'), cancelButtonText: t('cancel'), type: 'warning'
+    })
+    if (!selected(id, admin, epoch)) return
+    await (admin ? allEmailDelete(id) : emailDelete(id))
+    if (epoch !== emailStore.syncSession()) return
+    emailStore.invalidateDetail([id])
+    emailStore.deleteIds = [id]
+    ElMessage({ message: t('delSuccessMsg'), type: 'success', plain: true })
+    if (selected(id, admin, epoch)) router.back()
+  } catch (error) {
+    if (error !== 'cancel' && error !== 'close' && selected(id, admin, epoch) && !isCanceled(error)) detailError.value = true
+  }
 }
 </script>
 <style scoped lang="scss">

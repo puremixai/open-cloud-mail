@@ -1,0 +1,40 @@
+name: Test and build
+
+on:
+  pull_request:
+    paths:
+      - 'mail-worker/**'
+      - 'mail-vue/**'
+      - '.github/workflows/**'
+  push:
+    branches: ['codex/**']
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4.1.0
+        with:
+          version: 11
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+          cache: pnpm
+          cache-dependency-path: |
+            mail-worker/pnpm-lock.yaml
+            mail-vue/pnpm-lock.yaml
+      - run: pnpm install --frozen-lockfile
+        working-directory: mail-worker
+      - run: pnpm run test:unit
+        working-directory: mail-worker
+      - run: pnpm install --frozen-lockfile
+        working-directory: mail-vue
+      - run: pnpm run test:unit
+        working-directory: mail-vue
+      - run: pnpm run build
+        working-directory: mail-vue

@@ -3,11 +3,12 @@ import { email } from './email/email';
 import userService from './service/user-service';
 import verifyRecordService from './service/verify-record-service';
 import emailService from './service/email-service';
-import kvObjService from './service/kv-obj-service';
+import objectAccessService from './service/object-access-service';
 import oauthService from './service/oauth-service';
 import analysisService from './service/analysis-service';
 import xaiOAuthService from './service/xai-oauth-service';
 import { stripApiPrefix } from './utils/api-path';
+import { recoverMailOperations } from './service/mail-operation-service';
 export default {
 	 async fetch(req, env, ctx) {
 
@@ -20,13 +21,17 @@ export default {
 		}
 
 		 if (['/static/','/attachments/'].some(p => url.pathname.startsWith(p))) {
-			 return await kvObjService.toObjResp( { env }, url.pathname.substring(1));
+			 let key;
+			 try { key = decodeURIComponent(url.pathname.substring(1)); }
+			 catch { return new Response('Not found', { status: 404 }); }
+			 return objectAccessService.response({ env }, key, url.searchParams.get('token'));
 		 }
 
 		return env.assets.fetch(req);
 	},
 	email: email,
 	async scheduled(c, env, ctx) {
+		await recoverMailOperations({ env });
 		if (c.cron === '*/30 * * * *') {
 			await analysisService.refreshEchartsCache({ env })
 			return;

@@ -13,9 +13,10 @@ export const useUserStore = defineStore('user', {
             })
         },
         refreshUserInfo() {
-            loginUserInfo().then(user => {
-                this.user = user
-            })
+            const token = localStorage.getItem('token')
+            return loginUserInfo().then(user => {
+                if (token === localStorage.getItem('token')) this.user = user
+            }).catch(() => {})
         }
     }
 })

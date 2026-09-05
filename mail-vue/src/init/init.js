@@ -5,6 +5,7 @@ import {loginUserInfo} from "@/request/my.js";
 import {permsToRouter} from "@/perm/perm.js";
 import router from "@/router";
 import {websiteConfig} from "@/request/setting.js";
+import {useEmailStore, staleRequest} from '@/store/email.js';
 import i18n from "@/i18n/index.js";
 
 export async function init() {
@@ -15,6 +16,7 @@ export async function init() {
     const accountStore = useAccountStore();
 
     const token = localStorage.getItem('token');
+    const epoch = useEmailStore().syncSession();
     if (!settingStore.lang) {
         let lang = navigator.language.split('-')[0]
         lang = lang === 'zh' ? lang : 'en'
@@ -27,11 +29,19 @@ export async function init() {
 
     if (token) {
         const userPromise = loginUserInfo().catch(e => {
-            console.error(e);
-            return null;
+            if (e?.code === 401 || e?.response?.status === 401) return null;
+            throw e;
         });
 
         const [s, user] = await Promise.all([websiteConfig(), userPromise]);
+        if (token !== localStorage.getItem('token')) {
+            if (localStorage.getItem('token')) throw staleRequest();
+            // A current-session 401 already cleared identity; the public shell can load.
+            settingStore.settings = s;
+            settingStore.domainList = s.domainList;
+            return;
+        }
+        if (epoch !== useEmailStore().syncSession()) throw staleRequest();
         setting = s;
         settingStore.settings = setting;
         settingStore.domainList = setting.domainList;

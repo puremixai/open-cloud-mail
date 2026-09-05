@@ -1,5 +1,5 @@
 <template>
-  <Win95Frame>
+  <Win95Frame v-if="userStore.user.email">
     <el-container class="layout">
       <el-aside
           class="aside"
@@ -20,10 +20,13 @@
       </el-container>
     </el-container>
   </Win95Frame>
-  <writer ref="writerRef" />
+  <writer v-if="userStore.user.email" ref="writerRef" />
 </template>
 
 <script setup>
+import {useEmailStore} from '@/store/email.js'
+import {useUserStore} from "@/store/user.js"
+const userStore = useUserStore()
 import Aside from '@/layout/aside/index.vue'
 import Header from '@/layout/header/index.vue'
 import Main from '@/layout/main/index.vue'
@@ -48,6 +51,9 @@ onMounted(() => {
 })
 
 onBeforeUnmount(() => {
+  uiStore.writerRef = null
+  const emailStore = useEmailStore()
+  emailStore.emailScroll = emailStore.starScroll = emailStore.sendScroll = null
   window.removeEventListener('resize', handleResize)
 })
 </script>
