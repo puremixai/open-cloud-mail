@@ -124,3 +124,17 @@ it('retries a failed capability refresh explicitly without downloading the stale
   await wrapper.get('[data-test="detail-retry"]').trigger('click'); await flushPromises()
   expect(downloads).toEqual(['https://mail.example.com/fresh-after-retry'])
 })
+
+it('labels native detail controls and attachment actions and disables repeated attachment work', async () => {
+  const store = useEmailStore()
+  store.contentData.email = { emailId: 3 }
+  store.contentData.showReply = true
+  store.contentData.showStar = true
+  http.get.mockResolvedValueOnce(attachmentMail('/signed'))
+  wrapper = mountContent(); await flushPromises()
+  expect(wrapper.get('button[aria-label="ux.backToMail"]').exists()).toBe(true)
+  expect(wrapper.get('button[aria-label="reply"]').exists()).toBe(true)
+  expect(wrapper.get('.att-name').element.tagName).toBe('BUTTON')
+  expect(wrapper.get('a[download]').attributes('aria-label')).toBe('ux.downloadAttachment')
+  expect(wrapper.get('.att-name').attributes('aria-label')).toBe('ux.previewAttachment')
+})

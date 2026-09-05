@@ -6,16 +6,16 @@
         <div>{{$t('username')}}</div>
         <div>
           <span v-if="setNameShow" class="edit-name-input">
-            <el-input v-model="accountName"  ></el-input>
-            <span class="edit-name" @click="setName">
+            <el-input v-model="accountName" :aria-label="$t('username')" @keyup.enter="setName"></el-input>
+            <button type="button" class="edit-name" @click="setName">
              {{$t('save')}}
-            </span>
+            </button>
           </span>
           <span v-else class="user-name">
             <span >{{ userStore.user.name }}</span>
-            <span class="edit-name" @click="showSetName">
+            <button type="button" class="edit-name" @click="showSetName">
              {{$t('change')}}
-            </span>
+            </button>
           </span>
         </div>
       </div>
@@ -35,7 +35,7 @@
       <el-select
           :model-value="langSelect"
           class="language-select"
-          placeholder="Select"
+          :aria-label="$t('language')"
           @change="changeLang"
       >
         <el-option label="中文" value="zh" @pointerdown.prevent.stop="changeLang('zh')"/>
@@ -43,18 +43,20 @@
       </el-select>
     </div>
     <div class="del-email" v-perm="'my:delete'">
-      <div class="title">{{$t('deleteUser')}}</div>
+      <div class="title">{{$t('ux.dangerZone')}}</div>
       <div style="color: var(--regular-text-color);">
-        {{$t('delAccountMsg')}}
+        {{$t('ux.deleteAccountImpact')}}
       </div>
       <div>
-        <el-button type="primary" @click="deleteConfirm">{{$t('deleteUserBtn')}}</el-button>
+        <el-button type="danger" @click="deleteConfirm">{{$t('ux.deleteAccount')}}</el-button>
       </div>
     </div>
     <el-dialog v-model="pwdShow" :title="$t('changePassword')" width="340">
       <div class="update-pwd">
-        <el-input type="password" :placeholder="$t('newPassword')" v-model="form.password" autocomplete="off" @keyup.enter="submitPwd"/>
-        <el-input type="password" :placeholder="$t('confirmPassword')" v-model="form.newPwd" autocomplete="off" @keyup.enter="submitPwd"/>
+        <label for="settings-password">{{ $t('newPassword') }}</label>
+        <el-input id="settings-password" type="password" show-password :placeholder="$t('newPassword')" v-model="form.password" autocomplete="new-password" @keyup.enter="submitPwd"/>
+        <label for="settings-confirm">{{ $t('confirmPassword') }}</label>
+        <el-input id="settings-confirm" type="password" show-password :placeholder="$t('confirmPassword')" v-model="form.newPwd" autocomplete="new-password" @keyup.enter="submitPwd"/>
         <el-button type="primary" :loading="setPwdLoading" @click="submitPwd">{{$t('save')}}</el-button>
       </div>
     </el-dialog>
@@ -141,8 +143,9 @@ const form = reactive({
 })
 
 const deleteConfirm = () => {
-  ElMessageBox.confirm(t('delAccountConfirm'), {
-    confirmButtonText: t('confirm'),
+  ElMessageBox.confirm(t('ux.deleteAccountImpact'), t('ux.deleteAccount'), {
+    confirmButtonText: t('ux.deleteAccount'),
+    confirmButtonClass: 'el-button--danger',
     cancelButtonText: t('cancel'),
     type: 'warning'
   }).then(() => {
@@ -154,7 +157,7 @@ const deleteConfirm = () => {
         plain: true,
       })
     })
-  })
+  }).catch(() => {})
 }
 
 
@@ -256,7 +259,8 @@ function submitPwd() {
       }
 
       .edit-name {
-        color: #4dabff;
+        color: var(--el-color-primary);
+        min-height: 32px;
         padding-left: 10px;
         cursor: pointer;
       }
@@ -289,6 +293,8 @@ function submitPwd() {
   }
 
   .del-email {
+    border-top: 1px solid var(--el-color-danger);
+    padding-top: 24px;
     font-size: 14px;
     display: flex;
     flex-direction: column;

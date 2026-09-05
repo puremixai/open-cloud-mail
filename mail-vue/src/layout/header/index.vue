@@ -1,37 +1,25 @@
 <template>
   <div class="header" :class="!hasPerm('email:send') ? 'not-send' : ''">
     <div class="header-btn">
-      <hanburger @click="changeAside"></hanburger>
+      <hanburger :is-active="uiStore.asideShow" @toggle-click="changeAside"></hanburger>
       <span class="breadcrumb-item">{{ $t(route.meta.title) }}</span>
     </div>
-    <div v-perm="'email:send'" class="writer-box" @click="openSend">
-      <div class="writer">
-        <Icon icon="material-symbols:edit-outline-sharp" width="22" height="22"/>
-        <span v-if="uiStore.win95" class="writer-label">{{ $t('newMail') }}</span>
-      </div>
-    </div>
+    <IconButton v-perm="'email:send'" class="writer-box" action="compose" :label="$t('newMail')" @click="openSend">
+      <span v-if="uiStore.win95" class="writer-label">{{ $t('newMail') }}</span>
+    </IconButton>
     <div class="toolbar">
       <template v-if="!uiStore.win95">
-        <div v-if="uiStore.dark" class="sun-icon icon-item" @click="openDark($event)">
-          <Icon icon="mingcute:sun-fill"/>
-        </div>
-        <div v-else class="dark-icon icon-item" @click="openDark($event)">
-          <Icon icon="solar:moon-linear"/>
-        </div>
-        <div class="win95-icon icon-item" :title="$t('win95Mode')" @click="openWin95($event)">
-          <Icon icon="mdi:monitor"/>
-        </div>
+        <IconButton :action="uiStore.dark ? 'sun' : 'moon'" :label="$t(uiStore.dark ? 'ux.lightTheme' : 'ux.darkTheme')" @click="openDark" />
+        <IconButton action="monitor" :label="$t('win95Mode')" @click="openWin95" />
       </template>
-      <div class="notice icon-item" @click="openNotice">
-        <Icon icon="streamline-plump:announcement-megaphone"/>
-      </div>
-      <el-dropdown ref="userinfoRef" @visible-change="e => userInfoShow = e" :teleported="false" popper-class="detail-dropdown">
-        <div class="avatar" @click="userInfoHide" >
+      <IconButton action="notice" :label="$t('noticeTitle')" @click="openNotice" />
+      <el-dropdown trigger="click" @visible-change="e => userInfoShow = e" :teleported="false" popper-class="detail-dropdown">
+        <button type="button" class="avatar" :aria-label="$t('ux.accountMenu')" :aria-expanded="userInfoShow">
           <div class="avatar-text">
             <div>{{ formatName(userStore.user.email) }}</div>
           </div>
           <Icon class="setting-icon" icon="mingcute:down-small-fill" width="24" height="24"/>
-        </div>
+        </button>
         <template #dropdown>
           <div class="user-details">
             <div class="details-avatar">
@@ -40,9 +28,9 @@
             <div class="user-name">
               {{ userStore.user.name }}
             </div>
-            <div class="detail-email" @click="copyEmail(userStore.user.email)">
+            <button type="button" class="detail-email" :title="$t('ux.copyEmail')" @click="copyEmail(userStore.user.email)">
               {{ userStore.user.email }}
-            </div>
+            </button>
             <div class="detail-user-type">
               <el-tag>{{ userStore.user.role.name }}</el-tag>
             </div>
@@ -79,7 +67,7 @@
 </template>
 
 <script setup>
-import router from "@/router";
+import IconButton from '@/components/icon-button/index.vue';
 import hanburger from '@/components/hamburger/index.vue'
 import {logoutSession} from '@/utils/session.js';
 import {Icon} from "@iconify/vue";
@@ -90,7 +78,6 @@ import {computed, ref} from "vue";
 import {useSettingStore} from "@/store/setting.js";
 import {hasPerm} from "@/perm/perm.js"
 import {useI18n} from "vue-i18n";
-import {setExtend} from "@/utils/day.js"
 
 const {t} = useI18n();
 const route = useRoute();
@@ -99,7 +86,6 @@ const userStore = useUserStore();
 const uiStore = useUiStore();
 const logoutLoading = ref(false)
 const userInfoShow = ref(false)
-const userinfoRef = ref({})
 
 const accountCount = computed(() => {
   return userStore.user.role.accountCount
@@ -162,13 +148,6 @@ const sendCount = computed(() => {
   return userStore.user.sendCount + '/' + userStore.user.role.sendCount
 })
 
-function userInfoHide(e) {
-    if (userInfoShow.value) {
-        userinfoRef.value.handleClose()
-    } else {
-        userinfoRef.value.handleOpen()
-    }
-}
 
 async function copyEmail(email) {
   try {
@@ -188,10 +167,6 @@ async function copyEmail(email) {
   }
 }
 
-function changeLang(lang) {
-  setExtend(lang === 'en' ? 'en' : 'zh-cn')
-  settingStore.lang = lang
-}
 
 function openNotice() {
   uiStore.showNotice()
@@ -200,13 +175,14 @@ function openNotice() {
 function transitionTheme(e, flag, apply) {
   const root = document.documentElement
 
-  if (!document.startViewTransition) {
+  if (!document.startViewTransition || window.matchMedia?.('(prefers-reduced-motion: reduce)').matches) {
     apply(root);
     return
   }
 
-  const x = e.clientX
-  const y = e.clientY
+  const rect = e.currentTarget?.getBoundingClientRect()
+  const x = e.clientX || (rect ? rect.left + rect.width / 2 : window.innerWidth / 2)
+  const y = e.clientY || (rect ? rect.top + rect.height / 2 : window.innerHeight / 2)
 
   const maxX = Math.max(x, window.innerWidth - x)
   const maxY = Math.max(y, window.innerHeight - y)
@@ -243,7 +219,7 @@ function isMobilePointer() {
 
 function setMetaColor(color) {
   const metaTag = document.getElementById('theme-color-meta');
-  metaTag.setAttribute('content', color)
+  metaTag?.setAttribute('content', color)
 }
 
 function switchDark(nextIsDark, root) {
@@ -393,31 +369,7 @@ function formatName(email) {
   grid-template-columns: auto 1fr;
 }
 
-.writer-box {
-  cursor: pointer;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  margin-left: 5px;
-
-  .writer {
-    width: 34px;
-    height: 34px;
-    border-radius: 50%;
-    color: #ffffff;
-    background: linear-gradient(135deg, #1890ff, #3a80dd);
-    transition: all 0.3s ease;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-
-    .writer-text {
-      margin-left: 15px;
-      font-size: 14px;
-      font-weight: bold;;
-    }
-  }
-}
+.writer-box { margin-left: 5px; }
 
 .header-btn {
   display: inline-flex;
@@ -502,7 +454,7 @@ function formatName(email) {
 
 }
 
-.el-tooltip__trigger:first-child:focus-visible {
-  outline: unset;
-}
+.writer-box { align-self: center; color: var(--el-color-primary); }
+.avatar { color: inherit; min-height: 32px; }
+@media (pointer: coarse) { .avatar { min-height: 44px; } .toolbar { gap: 2px; } }
 </style>

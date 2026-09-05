@@ -11,6 +11,7 @@ app.get('/email/detail', async (c) => {
 });
 
 app.get('/email/list', async (c) => {
+	// Optional search matches sender name/address or subject within the user's mailbox scope.
 	const data = await emailService.list(c, c.req.query(), userContext.getUserId(c));
 	return c.json(result.ok(data));
 });

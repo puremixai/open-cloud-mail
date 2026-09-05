@@ -406,9 +406,6 @@ html.win95 .toolbar .icon-item:hover { background: #dfdfdf; }
 
 /* ---- 列表表头：设计稿的灰色凸起列头（发件人 | 主题 | 日期） ---- */
 /* 表头插入后容器变为三行：工具条 / 表头 / 列表 */
-@media (min-width: 1367px) {
-    html.win95 .email-container { grid-template-rows: auto auto 1fr; }
-}
 html.win95 .w95-list-head {
     display: flex;
     align-items: center;
@@ -419,8 +416,6 @@ html.win95 .w95-list-head {
     color: #000000;
     box-shadow: inset -1px -1px #808080, inset 1px 1px #ffffff;
 }
-html.win95 .w95-list-head .h-cc { width: 40px; flex: 0 0 auto; }
-html.win95 .w95-list-head .h-sender { width: 216px; flex: 0 0 auto; }
 html.win95 .w95-list-head .h-subject { flex: 1; min-width: 0; overflow: hidden; }
 html.win95 .w95-list-head .h-date { width: 90px; flex: 0 0 auto; text-align: right; }
 html.win95 .avatar .avatar-text,
@@ -1107,36 +1102,11 @@ html.win95 .email-container .email-row {
     border-bottom: 1px solid #f2f2f2;
 }
 html.win95 .email-container .email-row:hover { background: #f0f0f8 !important; }
-html.win95 .email-container .email-row .title {
-    grid-template-columns: 190px 1fr !important;
-}
-html.win95 .email-container .email-row .email-content { display: none; }
-
-/* 桌面端紧凑单行：压缩行高、隐藏辅助信息，一屏显示更多邮件；
-   移动端（<1367px）保持原有双行布局 */
-@media (min-width: 1367px) {
-    html.win95 .email-container .email-row {
-        height: 26px;
-        min-height: 26px;
-        padding: 0 6px;
-        font-size: 12px;
-    }
-    html.win95 .email-container .email-row.all-email {
-        height: 26px;
-    }
-    html.win95 .email-container .email-row .el-checkbox {
-        height: auto;
-        padding: 0 8px 0 4px;
-    }
-    html.win95 .email-container .email-row svg { width: 15px; height: 15px; }
-    html.win95 .email-container .email-row .user-info,
-    html.win95 .email-container .email-row .unread { display: none; }
-    html.win95 .email-container .email-row .email-time { color: #808080; }
-    html.win95 .email-container .email-row[data-checked="true"] { background: #000080 !important; }
-    html.win95 .email-container .email-row[data-checked="true"] .email-sender,
-    html.win95 .email-container .email-row[data-checked="true"] .email-subject,
-    html.win95 .email-container .email-row[data-checked="true"] .email-time { color: #ffffff; }
-}
+html.win95 .email-container .email-row[data-checked="true"] { background: #000080 !important; color: #fff; }
+html.win95 .email-container .email-row[data-checked="true"] .email-sender,
+html.win95 .email-container .email-row[data-checked="true"] .email-subject,
+html.win95 .email-container .email-row[data-checked="true"] .email-content,
+html.win95 .email-container .email-row[data-checked="true"] .email-time { color: #ffffff; }
 
 /* ============ 登录页：桌面底色 + 窗口化卡片 ============ */
 /* 无背景图时：桌面青色，替换掉现代风格蓝色渐变 */
@@ -1216,4 +1186,32 @@ html.win95 .sid-note-list {
 html.win95 .sid-hint,
 html.win95 .sid-disclaimer {
     color: #404040;
+}
+
+/* Accessible controls retain the raised edges and square Win95 geometry. */
+html.win95 .w95-menu-group { position: relative; }
+html.win95 .w95-menu-item { color: inherit; min-height: 32px; }
+html.win95 .w95-ditem { display: block; width: 100%; text-align: left; min-height: 32px; }
+html.win95 .w95-sm-item { width: 100%; text-align: left; color: #000; }
+html.win95 .w95-titlebar { height: 36px; }
+html.win95 .w95-titlebar .tbtns { display: flex; gap: 3px; }
+html.win95 .w95-tbtn { width: 32px; height: 32px; }
+html.win95 .w95-idcard-close, html.win95 .w95-idcard-style { width: 32px; height: 32px; top: 2px; }
+html.win95 .w95-idcard-style { right: 45px; }
+html.win95 .w95-idcard-close { right: 9px; }
+html.win95 .w95-idcard-email, html.win95 .w95-bank-email { text-align: left; }
+html.win95 .w95-dicon { color: #fff; }
+html.win95 .del-email .el-button--danger { color: #800000 !important; font-weight: bold; }
+@media (pointer: coarse) {
+  html.win95 .w95-titlebar { height: 48px; }
+  html.win95 .w95-tbtn, html.win95 .w95-idcard-close, html.win95 .w95-idcard-style { width: 44px; height: 44px; }
+  html.win95 .w95-idcard-style { right: 57px; }
+  html.win95 .w95-menu-item, html.win95 .w95-ditem, html.win95 .w95-sm-item, html.win95 .w95-btn { min-height: 44px; }
+}
+
+@media (pointer: coarse) {
+  html.win95 .w95-taskbar { height: 48px; }
+  html.win95 .w95-desktop { bottom: 48px; }
+  html.win95 .w95-startmenu { bottom: 50px; max-height: calc(100dvh - 54px); overflow-y: auto; }
+  html.win95 .w95-menu-item { padding-inline: 6px; }
 }

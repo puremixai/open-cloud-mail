@@ -26,7 +26,7 @@ const emailService = {
 
 	async list(c, params, userId) {
 
-		let { emailId, type, accountId, size, timeSort, allReceive, full } = params;
+		let { emailId, type, accountId, size, timeSort, allReceive, full, search } = params;
 
 		size = Number(size);
 		emailId = Number(emailId) || 0;
@@ -44,8 +44,8 @@ const emailService = {
 			allReceive = accountRow.allReceive;
 		}
 
-		const filters = this.emailListFilters({ userId, accountId, type, allReceive, emailId, timeSort });
-		const countFilters = this.emailListFilters({ userId, accountId, type, allReceive, withCursor: false });
+		const filters = this.emailListFilters({ userId, accountId, type, allReceive, emailId, timeSort, search });
+		const countFilters = this.emailListFilters({ userId, accountId, type, allReceive, search, withCursor: false });
 		const columns = full ? emailListColumns : emailBriefColumns;
 
 		const query = orm(c)
@@ -133,7 +133,7 @@ const emailService = {
 		return list;
 	},
 
-	emailListFilters({ userId, accountId, type, allReceive, emailId, timeSort, withCursor = true }) {
+	emailListFilters({ userId, accountId, type, allReceive, emailId, timeSort, search, withCursor = true }) {
 		const conditions = [
 			eq(email.userId, userId),
 			eq(email.type, type),
@@ -142,6 +142,17 @@ const emailService = {
 		];
 		if (!allReceive) {
 			conditions.push(eq(email.accountId, accountId));
+		}
+		const query = typeof search === 'string' ? search.trim() : '';
+		if (query) {
+			// Literal substring search, scoped to sender and subject. Escape LIKE's
+			// wildcards (and the escape character) before binding user input.
+			const pattern = `%${query.replace(/[!%_]/g, '!$&')}%`;
+			conditions.push(or(
+				sql`${email.name} COLLATE NOCASE LIKE ${pattern} ESCAPE '!'`,
+				sql`${email.sendEmail} COLLATE NOCASE LIKE ${pattern} ESCAPE '!'`,
+				sql`${email.subject} COLLATE NOCASE LIKE ${pattern} ESCAPE '!'`,
+			));
 		}
 		if (withCursor && emailId) {
 			conditions.push(timeSort ? gt(email.emailId, emailId) : lt(email.emailId, emailId));

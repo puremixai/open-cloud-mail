@@ -16,6 +16,9 @@ function createDB() {
     db.value.version(1).stores({
         att: 'draftId'
     })
+    db.value.version(2).stores({
+        recovery: 'id,accountId,updatedAt'
+    })
 }
 
 createDB()

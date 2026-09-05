@@ -31,16 +31,25 @@ import Aside from '@/layout/aside/index.vue'
 import Header from '@/layout/header/index.vue'
 import Main from '@/layout/main/index.vue'
 import Win95Frame from '@/layout/win95/frame.vue'
-import { ref, onMounted, onBeforeUnmount } from 'vue'
+import { ref, watch, onMounted, onBeforeUnmount } from 'vue'
 import {useUiStore} from "@/store/ui.js";
 import writer from '@/layout/write/index.vue'
 
 const uiStore = useUiStore();
 const writerRef = ref({})
 const isMobile = ref(window.innerWidth < 1025)
+const sidebarPreference = { desktop: isMobile.value ? true : uiStore.asideShow, mobile: isMobile.value ? uiStore.asideShow : false }
+let resizing = false
+watch(() => uiStore.asideShow, show => {
+  if (!resizing) sidebarPreference[isMobile.value ? 'mobile' : 'desktop'] = show
+}, { flush: 'sync' })
 const handleResize = () => {
-  isMobile.value = window.innerWidth < 1025
-  uiStore.asideShow = window.innerWidth > 1024;
+  const mobile = window.innerWidth < 1025
+  if (mobile === isMobile.value) return
+  resizing = true
+  isMobile.value = mobile
+  uiStore.asideShow = sidebarPreference[mobile ? 'mobile' : 'desktop']
+  resizing = false
 }
 
 onMounted(() => {

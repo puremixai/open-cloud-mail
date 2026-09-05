@@ -1,18 +1,17 @@
 <template>
   <div class="box">
-    <div class="header-actions">
-      <Icon class="icon" icon="material-symbols-light:arrow-back-ios-new" width="20" height="20" @click="handleBack"/>
-      <Icon v-perm="'email:delete'" class="icon" icon="uiw:delete" width="16" height="16" @click="handleDelete"/>
-      <span class="star" v-if="emailStore.contentData.showStar">
-        <Icon class="icon" @click="changeStar" v-if="email.isStar" icon="fluent-color:star-16" width="20" height="20"/>
-        <Icon class="icon" @click="changeStar" v-else icon="solar:star-line-duotone" width="18" height="18"/>
-      </span>
-      <Icon class="icon" v-if="emailStore.contentData.showReply" v-perm="'email:send'"  @click="openReply" icon="la:reply" width="21" height="21" />
-      <Icon class="icon" v-if="emailStore.contentData.showReply" v-perm="'email:send'"  @click="openForward" icon="iconoir:arrow-up-right" width="20" height="20" />
+    <div class="header-actions" role="group" :aria-label="t('ux.mailActions')">
+      <IconButton action="back" :label="t('ux.backToMail')" @click="handleBack"/>
+      <IconButton v-perm="'email:delete'" action="delete" :label="t('delete')" :disabled="!email.emailId" :loading="deleteLoading" @click="handleDelete"/>
+      <IconButton v-if="emailStore.contentData.showStar" action="star" :label="t(email.isStar ? 'ux.unstarMail' : 'ux.starMail')" :aria-pressed="!!email.isStar" :loading="starRequests.has(email.emailId)" :disabled="!email.emailId" @click="changeStar" />
+      <IconButton v-if="emailStore.contentData.showReply" v-perm="'email:send'" action="reply" :label="t('reply')" :loading="detailLoading" :disabled="!email.emailId" @click="openReply" />
+      <IconButton v-if="emailStore.contentData.showReply" v-perm="'email:send'" action="forward" :label="t('forward')" :loading="detailLoading" :disabled="!email.emailId" @click="openForward" />
     </div>
     <div v-if="!email.emailId" role="status">{{ t('mailSelectionRequired') }}</div>
     <div v-if="detailLoading || attachmentLoading" role="status">{{ t('mailDetailLoading') }}</div>
     <div v-if="detailError" role="alert">{{ t('mailLoadFailed') }} <button data-test="detail-retry" @click="retryDetail">{{ t('retry') }}</button></div>
+    <div v-if="starError" role="alert">{{ t('ux.starFailed') }}</div>
+    <div v-if="deleteError" role="alert">{{ t('ux.mailActionFailed') }} <button type="button" @click="handleDelete">{{ t('retry') }}</button></div>
     <el-scrollbar v-if="detailReady" class="scrollbar">
       <el-backtop target=".scrollbar .el-scrollbar__wrap" :visibility-height="300" :right="30" :bottom="40"/>
       <div class="container">
@@ -49,16 +48,17 @@
             <div class="att-box">
 
               <div class="att-item" v-for="att in email.attList" :key="att.attId">
-                <div class="att-icon" @click="showImage(att)">
+                <div class="att-icon" aria-hidden="true">
                   <Icon v-bind="getIconByName(att.filename)" />
                 </div>
-                <div class="att-name" @click="showImage(att)">
+                <button v-if="isImage(att.filename)" type="button" class="att-name" :aria-label="t('ux.previewAttachment', { name: att.filename })" :disabled="attachmentLoading" @click="showImage(att)">
                   {{ att.filename }}
-                </div>
+                </button>
+                <span v-else class="att-name">{{ att.filename }}</span>
                 <div class="att-size">{{ formatBytes(att.size) }}</div>
                 <div class="opt-icon att-icon">
-                  <Icon v-if="isImage(att.filename)" icon="hugeicons:view" width="22" height="22" @click="showImage(att)"/>
-                  <a :href="att.url" :download="att.filename" @click.prevent="downloadAttachment(att)">
+                  <IconButton v-if="isImage(att.filename)" action="preview" :label="t('ux.previewAttachment', { name: att.filename })" :loading="attachmentLoading" @click="showImage(att)"/>
+                  <a class="attachment-download" :href="att.url" :download="att.filename" :aria-label="t('ux.downloadAttachment', { name: att.filename })" :title="t('ux.downloadAttachment', { name: att.filename })" :aria-disabled="attachmentLoading" :aria-busy="attachmentLoading" :tabindex="attachmentLoading ? -1 : 0" @click.prevent="downloadAttachment(att)">
                     <Icon icon="system-uicons:push-down" width="22" height="22"/>
                   </a>
                 </div>
@@ -72,7 +72,7 @@
         v-if="showPreview"
         :url-list="srcList"
         show-progress
-        @close="showPreview = false"
+        @close="closePreview"
     />
   </div>
 </template>
@@ -83,6 +83,7 @@ import {useRouter} from 'vue-router'
 import {ElMessage, ElMessageBox} from 'element-plus'
 import {emailDelete, emailRead} from "@/request/email.js";
 import {Icon} from "@iconify/vue";
+import IconButton from '@/components/icon-button/index.vue'
 import {isCanceled, useEmailStore} from "@/store/email.js";
 import {useAccountStore} from "@/store/account.js";
 import {formatDetailDate} from "@/utils/day.js";
@@ -118,11 +119,13 @@ watch(() => accountStore.currentAccountId, () => {
 
 const detailLoading = ref(false), detailError = ref(false), detailReady = ref(false)
 const attachmentLoading = ref(false)
+const deleteLoading = ref(false), deleteError = ref(false), starError = ref(false)
+let previewTrigger = null
 let active = true, loadId = 0, composeId = 0
 let pendingCompose = null
 let attachmentId = 0, pendingAttachment = null
 const readRequests = new Set()
-const starRequests = new Set()
+const starRequests = reactive(new Set())
 function selected(id, admin, epoch) {
   return active && epoch === emailStore.syncSession() && email.value.emailId === id && emailStore.contentData.admin === admin
 }
@@ -162,6 +165,9 @@ watch([() => email.value.emailId, () => emailStore.contentData.admin], () => {
   attachmentId++
   pendingAttachment = null
   attachmentLoading.value = false
+  deleteLoading.value = false
+  deleteError.value = false
+  starError.value = false
   pendingCompose = null
   showPreview.value = false
   srcList.length = 0
@@ -249,8 +255,14 @@ async function useAttachment(att, download, force = false) {
     if (operation === attachmentId) attachmentLoading.value = false
   }
 }
-function downloadAttachment(att) { return useAttachment(att, true) }
-function showImage(att) { if (isImage(att.filename)) return useAttachment(att, false) }
+function downloadAttachment(att) { if (!attachmentLoading.value) return useAttachment(att, true) }
+function showImage(att) {
+  if (isImage(att.filename) && !attachmentLoading.value) {
+    previewTrigger = document.activeElement
+    return useAttachment(att, false)
+  }
+}
+function closePreview() { showPreview.value = false; previewTrigger?.focus?.() }
 
 function isImage(filename) {
   return ['png', 'jpg', 'jpeg', 'bmp', 'gif','jfif'].includes(getExtName(filename))
@@ -266,6 +278,7 @@ async function changeStar() {
   const current = email.value, id = current.emailId
   if (!id || starRequests.has(id)) return
   const mutation = emailStore.beginStarMutation(id)
+  starError.value = false
   const before = current.isStar || 0, after = before ? 0 : 1
   starRequests.add(id)
   emailStore.updateEmail(id, { isStar: after })
@@ -281,7 +294,10 @@ async function changeStar() {
       emailStore.starScroll?.deleteEmail([id])
     }
   } catch (error) {
-    if (emailStore.isCurrentStarMutation(mutation)) emailStore.updateEmail(id, { isStar: before })
+    if (emailStore.isCurrentStarMutation(mutation)) {
+      emailStore.updateEmail(id, { isStar: before })
+      starError.value = true
+    }
   } finally {
     starRequests.delete(id)
     emailStore.finishStarMutation(mutation)
@@ -295,7 +311,9 @@ const handleBack = () => {
 const handleDelete = async () => {
   const id = email.value.emailId, admin = emailStore.contentData.admin
   const epoch = emailStore.syncSession()
-  if (!id) return
+  if (!id || deleteLoading.value) return
+  deleteLoading.value = true
+  deleteError.value = false
   try {
     await ElMessageBox.confirm(t('delEmailConfirm'), {
       confirmButtonText: t('confirm'), cancelButtonText: t('cancel'), type: 'warning'
@@ -308,12 +326,14 @@ const handleDelete = async () => {
     ElMessage({ message: t('delSuccessMsg'), type: 'success', plain: true })
     if (selected(id, admin, epoch)) router.back()
   } catch (error) {
-    if (error !== 'cancel' && error !== 'close' && selected(id, admin, epoch) && !isCanceled(error)) detailError.value = true
-  }
+    if (error !== 'cancel' && error !== 'close' && selected(id, admin, epoch) && !isCanceled(error)) deleteError.value = true
+  } finally { if (selected(id, admin, epoch)) deleteLoading.value = false }
 }
 </script>
 <style scoped lang="scss">
 .box {
+  display: flex;
+  flex-direction: column;
   height: 100%;
   overflow: hidden;
 }
@@ -322,7 +342,7 @@ const handleDelete = async () => {
   padding: 9px 15px 8px;
   display: flex;
   align-items: center;
-  gap: 20px;
+  gap: 8px;
   box-shadow: var(--header-actions-border);
   font-size: 18px;
   .star {
@@ -338,7 +358,8 @@ const handleDelete = async () => {
 
 
 .scrollbar {
-  height: calc(100% - 38px);
+  flex: 1;
+  min-height: 0;
   width: 100%;
 }
 
@@ -372,8 +393,11 @@ const handleDelete = async () => {
       padding: 14px;
       border-radius: 6px;
       width: fit-content;
+      max-width: 100%;
+      box-sizing: border-box;
       .att-box {
-        min-width: min(410px,calc(100vw - 60px));
+        width: 100%;
+        min-width: 0;
         max-width: 600px;
         display: grid;
         gap: 12px;
@@ -409,6 +433,13 @@ const handleDelete = async () => {
         }
 
         .att-name {
+          border: 0;
+          background: transparent;
+          color: inherit;
+          font: inherit;
+          text-align: left;
+          min-width: 0;
+          padding: 4px 0;
           margin-left: 8px;
           margin-right: 8px;
           white-space: nowrap;
@@ -521,6 +552,11 @@ const handleDelete = async () => {
 .bottom-distance {
   margin-bottom: 30px;
 }
+
+.box > [role="alert"], .box > [role="status"] { padding: 8px 15px; overflow-wrap: anywhere; }
+.attachment-download { min-width: 32px; min-height: 32px; justify-content: center; }
+.attachment-download[aria-disabled="true"] { opacity: .55; }
+@media (pointer: coarse) { .attachment-download { min-width: 44px; min-height: 44px; } }
 
 
 </style>

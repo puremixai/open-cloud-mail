@@ -26,10 +26,13 @@
 import emailScroll from "@/components/email-scroll/index.vue"
 import {emailDelete} from "@/request/email.js";
 import {starAdd, starCancel} from "@/request/star.js";
-import {defineOptions, ref, watch, toRaw} from "vue";
+import {defineOptions, ref, watch} from "vue";
 import {useUiStore} from "@/store/ui.js";
 import {userDraftStore} from "@/store/draft.js";
 import db from "@/db/db.js"
+import { useEmailStore } from "@/store/email.js"
+import { ElMessage } from "element-plus"
+import { useI18n } from "vue-i18n"
 
 defineOptions({
   name: 'draft'
@@ -38,54 +41,39 @@ defineOptions({
 const draftStore = userDraftStore();
 const uiStore = useUiStore();
 const scroll = ref({})
+const emailStore = useEmailStore()
+const { t } = useI18n()
 
-watch(() => draftStore.setDraft, async () => {
+watch(() => draftStore.refreshList, () => { scroll.value.refreshList?.() })
 
-  const draft = toRaw(draftStore.setDraft)
-  const draftId = draft.draftId
-  const attachments = toRaw(draftStore.setDraft.attachments)
-
-  delete draft.draftId
-  delete draft.attachments
-
-  if (!draft.content && !draft.subject && !(draft.receiveEmail.length > 0)) {
-    await db.value.draft.delete(draftId);
-    await db.value.att.delete(draftId);
-    draftStore.refreshList++
-    return;
-  }
-
-  await db.value.draft.update(draftId, draft);
-  await db.value.att.update(draftId, {attachments: attachments});
-  draftStore.refreshList++
-}, {
-  deep: true
-})
-
-watch(() => draftStore.refreshList, async () => {
-  const {list} = await getEmailList();
-    scroll.value.emailList.length = 0
-    scroll.value.handleList(list);
-    scroll.value.emailList.push(...list)
-})
-
-function getEmailList() {
-  return new Promise((resolve, reject) => {
-    db.value.draft.orderBy('createTime').reverse().toArray().then(list => {
-      resolve({list})
-    })
-  })
+async function getEmailList() {
+  const database = db.value
+  const list = await database.draft.orderBy('createTime').reverse().toArray()
+  return { list, total: list.length }
 }
 
 async function deleteDraft(draftIds) {
-  await db.value.draft.bulkDelete(draftIds);
-  draftStore.refreshList++
+  const database = db.value, epoch = emailStore.generation
+  try {
+    await database.transaction('rw', database.draft, database.att, async () => {
+      await database.draft.bulkDelete(draftIds)
+      await database.att.bulkDelete(draftIds)
+    })
+    if (epoch === emailStore.generation) draftStore.refreshList++
+  } catch {
+    if (epoch === emailStore.generation) ElMessage({ message: t('reqFailErrorMsg'), type: 'error' })
+  }
 }
 
 async function jumpContent(email) {
-  const att = await db.value.att.get(email.draftId)
-  email.attachments = att.attachments
-  uiStore.writerRef.openDraft(email);
+  const database = db.value, epoch = emailStore.generation
+  try {
+    const att = await database.att.get(email.draftId)
+    if (epoch !== emailStore.generation || database !== db.value) return
+    uiStore.writerRef.openDraft({ ...email, attachments: att?.attachments || [] })
+  } catch {
+    if (epoch === emailStore.generation) ElMessage({ message: t('mailLoadFailed'), type: 'error' })
+  }
 }
 
 </script>
