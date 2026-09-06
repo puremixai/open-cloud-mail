@@ -469,8 +469,11 @@ function printCard() {
 <style scoped lang="scss">
 .sid-page {
   max-width: 1180px;
+  height: 100%;
   margin: 0 auto;
   padding: 36px 40px 48px;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
 
   @media (max-width: 767px) {
     padding: 24px 20px 36px;
