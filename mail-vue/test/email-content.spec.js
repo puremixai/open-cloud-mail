@@ -138,3 +138,22 @@ it('labels native detail controls and attachment actions and disables repeated a
   expect(wrapper.get('a[download]').attributes('aria-label')).toBe('ux.downloadAttachment')
   expect(wrapper.get('.att-name').attributes('aria-label')).toBe('ux.previewAttachment')
 })
+
+it('allows reader shortcuts after a dialog has closed, while blocking them in an open dialog', async () => {
+  const store = useEmailStore()
+  store.contentData.email = { emailId: 3 }
+  http.get.mockResolvedValueOnce({ emailId: 3, text: 'body', attList: [] })
+  wrapper = mount(Content, { props: { embedded: true }, global: { mocks: { $t: key => key }, directives: { perm: () => {} }, stubs: { Icon: true, ShadowHtml: true, 'el-scrollbar': { template: '<div><slot/></div>' }, 'el-backtop': true, 'el-alert': true, 'el-image-viewer': true } } })
+  await flushPromises()
+  const dialog = document.createElement('div')
+  dialog.className = 'el-dialog'
+  document.body.append(dialog)
+  const bounds = vi.spyOn(dialog, 'getClientRects').mockReturnValue([{ width: 400, height: 200 }])
+  try {
+    window.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape' }))
+    expect(wrapper.emitted('close')).toBeUndefined()
+    bounds.mockReturnValue([])
+    window.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape' }))
+    expect(wrapper.emitted('close')).toHaveLength(1)
+  } finally { dialog.remove() }
+})

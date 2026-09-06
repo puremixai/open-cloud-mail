@@ -9,12 +9,13 @@ vi.mock('@/layout/header/index.vue', () => ({ default: { template: '<div />' } }
 vi.mock('@/layout/main/index.vue', () => ({ default: { template: '<div />' } }))
 vi.mock('@/layout/write/index.vue', () => ({ default: { template: '<div />' } }))
 vi.mock('@/layout/win95/frame.vue', () => ({ default: { template: '<div><slot /></div>' } }))
+vi.mock('@/components/connection-status/index.vue', () => ({ default: { template: '<div />' } }))
 let wrapper
 beforeEach(() => { vi.stubGlobal('innerWidth', 1440); setActivePinia(createPinia()); useUserStore().user.email = 'test@example.com' })
 afterEach(() => { wrapper?.unmount(); vi.unstubAllGlobals() })
 it('preserves manual sidebar choices across resize and restores the choice for each breakpoint', async () => {
   const Layout = (await import('@/layout/index.vue')).default
-  wrapper = mount(Layout, { global: { stubs: { 'el-container': { template: '<div><slot /></div>' }, 'el-main': { template: '<div><slot /></div>' }, 'el-aside': true, 'el-header': true } } })
+  wrapper = mount(Layout, { global: { mocks: { $t: key => key }, stubs: { 'el-container': { template: '<div><slot /></div>' }, 'el-main': { template: '<div><slot /></div>' }, 'el-aside': true, 'el-header': true } } })
   const ui = useUiStore()
   ui.asideShow = false; await nextTick()
   vi.stubGlobal('innerWidth', 1500); window.dispatchEvent(new Event('resize')); await nextTick()

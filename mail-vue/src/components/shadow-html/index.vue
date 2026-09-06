@@ -1,9 +1,17 @@
 <template>
   <div class="content-box" ref="contentBox">
-    <button v-if="hasRemoteImages && !allowRemoteImages" type="button" class="load-images" @click="loadExternalImages">
-      {{ loadImagesLabel }}
-    </button>
-    <div ref="container" class="content-html"></div>
+    <div v-if="hasRemoteImages && !allowRemoteImages" class="image-notice">
+      <span>{{ chinese ? '外部图片已阻止加载，以保护阅读隐私。' : 'External images are blocked to protect your reading privacy.' }}</span>
+      <button type="button" class="load-images" @click="loadExternalImages">{{ loadImagesLabel }}</button>
+    </div>
+    <div v-if="isWide" class="mail-size-controls">
+      <span>{{ chinese ? '宽版邮件' : 'Wide message' }}</span>
+      <button type="button" :aria-pressed="!originalSize" @click="originalSize = false">{{ chinese ? '适应宽度' : 'Fit to width' }}</button>
+      <button type="button" :aria-pressed="originalSize" @click="originalSize = true">{{ chinese ? '原始大小' : 'Original size' }}</button>
+    </div>
+    <div ref="htmlViewport" class="mail-html-viewport" :class="{ 'original-size': originalSize }" :tabindex="isWide && originalSize ? 0 : undefined" :aria-label="isWide ? (chinese ? '邮件正文，可横向滚动' : 'Message body, scroll horizontally') : undefined">
+      <div ref="container" class="content-html"></div>
+    </div>
   </div>
 </template>
 
@@ -18,12 +26,15 @@ const props = defineProps({
   mailId: { type: [String, Number], default: undefined }
 })
 const { locale } = useI18n({ useScope: 'global' })
+const chinese = computed(() => /^zh(?:[-_]|$)/i.test(locale.value))
 const loadImagesLabel = computed(() => /^zh(?:[-_]|$)/i.test(locale.value)
   ? '加载外部图片' : 'Load external images')
 const container = ref(null)
 const contentBox = ref(null)
+const htmlViewport = ref(null)
 const hasRemoteImages = ref(false)
 const allowRemoteImages = ref(false)
+const isWide = ref(false), originalSize = ref(false)
 let shadowRoot = null
 let shadowContent = null
 let resizeObserver = null
@@ -34,14 +45,14 @@ const BASE_STYLE = `
     all: initial;
     display: block;
     font-family: -apple-system, Inter, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
-    font-size: 14px;
-    line-height: 1.5;
+    font-size: 16px;
+    line-height: 1.75;
     color: #13181D;
     word-break: break-word;
   }
   h1, h2, h3, h4 { font-size: 18px; font-weight: 700; }
-  p { margin: 0; }
-  a { text-decoration: none; color: #0E70DF; }
+  p { margin: 0 0 1em; }
+  a { text-decoration: underline; text-underline-offset: 2px; color: #096dd9; }
   .shadow-content {
     display: flow-root;
     background: #fff;
@@ -72,14 +83,15 @@ function updateContent() {
 function autoScale() {
   if (!shadowRoot || !shadowContent || !contentBox.value) return
   const host = shadowRoot.host
-  const parentWidth = contentBox.value.offsetWidth
+  const parentWidth = htmlViewport.value?.clientWidth || contentBox.value.offsetWidth
   const childWidth = shadowContent.scrollWidth
   const childHeight = shadowContent.scrollHeight
-  const scale = parentWidth > 0 && childWidth > 0 ? Math.min(1, parentWidth / childWidth) : 1
+  isWide.value = parentWidth > 0 && childWidth > parentWidth + 1
+  const scale = !originalSize.value && parentWidth > 0 && childWidth > 0 ? Math.min(1, parentWidth / childWidth) : 1
   // Transform preserves mouse text selection; compensate the host layout height.
   host.style.transformOrigin = '0 0'
   host.style.transform = scale < 1 ? `scale(${scale})` : ''
-  host.style.width = scale < 1 ? `${parentWidth}px` : ''
+  host.style.width = originalSize.value && isWide.value ? `${childWidth}px` : scale < 1 ? `${parentWidth}px` : ''
   host.style.height = scale < 1 ? `${Math.ceil(childHeight * scale)}px` : ''
 }
 
@@ -109,8 +121,10 @@ onBeforeUnmount(() => {
 
 watch(() => [props.html, props.mailId], () => {
   allowRemoteImages.value = false
+  originalSize.value = false
   updateContent()
 }, { flush: 'post' })
+watch(originalSize, autoScale, { flush: 'post' })
 </script>
 
 <style scoped>
@@ -126,6 +140,11 @@ watch(() => [props.html, props.mailId], () => {
 .content-html {
   width: 100%;
 }
+.mail-html-viewport { overflow-x: auto; background: #fff; }
+.image-notice, .mail-size-controls { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin-bottom: 16px; color: var(--secondary-text-color); font-size: 12px; }
+.image-notice .load-images { margin: 0; font-size: 12px; }
+.mail-size-controls button { padding: 5px 8px; min-height: 32px; border: 1px solid var(--mail-border); color: var(--el-text-color-primary); cursor: pointer; }
+.mail-size-controls button[aria-pressed="true"] { background: var(--mail-selected); }
 
 .load-images {
   margin: 0 0 12px;

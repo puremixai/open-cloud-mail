@@ -62,7 +62,8 @@
                         :key="keyCount"
         >
           <template #default="{ data: item, index }" >
-            <div :class="['email-row', props.type, { 'right-checked': item.rightChecked, dense: dense }]"
+            <div :class="['email-row', props.type, { 'right-checked': item.rightChecked, dense: dense, 'is-current': emailStore.contentData.source === props.type && emailStore.contentData.email?.emailId === item.emailId, 'is-unread': item.unread === EmailUnreadEnum.UNREAD && showUnread }]"
+                 :data-mail-id="item.emailId"
                  :data-checked="item.checked"
                  role="group" :aria-label="t('ux.openMail', { sender: item.name || item.sendEmail || '', subject: item.subject || t('ux.noSubject') })"
                  @keydown="handleRowKey($event, item)"
@@ -104,12 +105,12 @@
                   <div class="email-text">
                     <span class="email-subject" :style="(item.unread === EmailUnreadEnum.UNREAD && showUnread)  ? 'font-weight: bold' : ''">
                       <div class="unread" v-if="!isMobile && (item.unread === EmailUnreadEnum.UNREAD && showUnread) "/>
-                      <button type="button" v-if="item.code" class="code-tag" :aria-label="t('copyCode')" @click.stop="copyCode(item.code)">[{{ t('codeLabel') }}{{ item.code }}]</button>
                       <button class="subject-text mail-open" type="button" :aria-label="t('ux.openMail', { sender: item.name || item.sendEmail || '', subject: item.subject || t('ux.noSubject') })" @click.stop="jumpDetails(item)">
                         <slot name="subject" :email="item" >
                           {{ item.subject || t('ux.noSubject') }}
                         </slot>
                       </button>
+                      <button type="button" v-if="item.code" class="code-tag" :aria-label="t('copyCode')" @click.stop="copyCode(item.code)">{{ item.code }}</button>
                     </span>
                     <span class="email-content">{{ item.text || '\u200B' }}</span>
                   </div>
@@ -421,7 +422,7 @@ function startEffects() {
   window.addEventListener('wheel', onWheel)
   window.addEventListener('resize', onResize)
   if (!resizeObserver && typeof ResizeObserver !== 'undefined') {
-    resizeObserver = new ResizeObserver(entries => { const width = entries[0]?.contentRect.width; if (width > 0) isMobile.value = width < 960 })
+    resizeObserver = new ResizeObserver(entries => { const width = entries[0]?.contentRect.width; if (width > 0) isMobile.value = width < 720 })
     if (container.value) resizeObserver.observe(container.value)
   }
   onResize()
@@ -459,7 +460,7 @@ function onEscClose(e) {
   if (e.key === 'Escape' && dropdownShow.value) dropdownRef.value?.handleClose()
 }
 function onWheel() { if (dropdownShow.value) dropdownRef.value?.handleClose() }
-function onResize() { const width = container.value?.getBoundingClientRect().width; if (width > 0) isMobile.value = width < 960 }
+function onResize() { const width = container.value?.getBoundingClientRect().width; if (width > 0) isMobile.value = width < 720 }
 onMounted(startEffects)
 onActivated(() => {
   startEffects()
@@ -891,6 +892,18 @@ function updateCheckStatus() {
 }
 
 function handleRowKey(event, email) {
+  if (['ArrowDown', 'ArrowUp', 'Home', 'End'].includes(event.key) && !event.ctrlKey && !event.metaKey && !event.altKey) {
+    event.preventDefault()
+    const index = emailList.findIndex(item => item.emailId === email.emailId)
+    const next = event.key === 'Home' ? 0 : event.key === 'End' ? emailList.length - 1 : Math.max(0, Math.min(emailList.length - 1, index + (event.key === 'ArrowDown' ? 1 : -1)))
+    const id = emailList[next]?.emailId
+    if (id == null) return
+    const focus = () => [...(container.value?.querySelectorAll('[data-mail-id]') || [])].find(row => String(row.dataset.mailId) === String(id))?.querySelector('.mail-open')?.focus({ preventScroll: true })
+    const top = next * itemHeight.value, viewport = scrollbarRef.value?.$el
+    if (viewport && (top < viewport.scrollTop || top + itemHeight.value > viewport.scrollTop + viewport.clientHeight)) scrollbarRef.value?.scrollTo(next)
+    nextTick(focus)
+    return
+  }
   if (event.key === 'ContextMenu' || (event.shiftKey && event.key === 'F10')) {
     const rect = event.currentTarget.getBoundingClientRect()
     handleContextmenu({ currentTarget: event.target, clientX: rect.left, clientY: rect.bottom, preventDefault: () => event.preventDefault() }, email)
@@ -1113,7 +1126,7 @@ function loadData() {
     margin-top: 5px;
     margin-bottom: 2px;
     color: var(--email-scroll-content-color);
-    @container mail-list (max-width: 959px) {
+    @container mail-list (max-width: 719px) {
       flex-direction: column;
     }
 
@@ -1154,7 +1167,7 @@ function loadData() {
     padding-left: 15px;
     padding-right: 20px;
     justify-content: center;
-    @container mail-list (min-width: 960px) {
+    @container mail-list (min-width: 720px) {
       justify-content: start;
       height: 100%;
       align-self: start;
@@ -1163,7 +1176,7 @@ function loadData() {
   }
 
   .title-column {
-    @container mail-list (max-width: 959px) {
+    @container mail-list (max-width: 719px) {
       grid-template-columns: 1fr !important;
       gap: 4px !important;
     }
@@ -1173,10 +1186,10 @@ function loadData() {
     flex: 1;
     display: grid;
     grid-template-columns: 240px 1fr;
-    @container mail-list (max-width: 959px) {
+    @container mail-list (max-width: 719px) {
       padding-right: 15px;
     }
-    @container mail-list (max-width: 959px) {
+    @container mail-list (max-width: 719px) {
       grid-template-columns: 1fr;
       gap: 4px;
     }
@@ -1190,7 +1203,7 @@ function loadData() {
         display: flex;
         flex-direction: column;
         align-content: center;
-        @container mail-list (max-width: 959px) {
+        @container mail-list (max-width: 719px) {
           flex-direction: row;
           gap: 5px;
         }
@@ -1206,7 +1219,7 @@ function loadData() {
           align-items: center;
         }
 
-        @container mail-list (min-width: 960px) {
+        @container mail-list (min-width: 720px) {
           grid-template-columns: 1fr;
           > span:last-child {
             display: none;
@@ -1231,7 +1244,7 @@ function loadData() {
       .phone-time {
         font-weight: normal;
         font-size: 12px;
-        @container mail-list (min-width: 960px) {
+        @container mail-list (min-width: 720px) {
           display: none;
         }
       }
@@ -1241,7 +1254,7 @@ function loadData() {
       .text-skeleton-one {
         width: 80%;
         height: 16px;
-        @container mail-list (max-width: 959px) {
+        @container mail-list (max-width: 719px) {
           width: 40%;
         }
         @media (max-width: 767px) {
@@ -1252,10 +1265,10 @@ function loadData() {
       .text-skeleton-two {
         width: min(300px, 100%);
         height: 16px;
-        @container mail-list (min-width: 960px) {
+        @container mail-list (min-width: 720px) {
           display: none;
         }
-        @container mail-list (max-width: 959px) {
+        @container mail-list (max-width: 719px) {
           width: 100%;
         }
       }
@@ -1264,7 +1277,7 @@ function loadData() {
     .email-text {
       display: grid;
       grid-template-columns: auto 1fr;
-      @container mail-list (max-width: 959px) {
+      @container mail-list (max-width: 719px) {
         grid-template-columns: 1fr;
       }
 
@@ -1275,7 +1288,7 @@ function loadData() {
         overflow: hidden;
         white-space: nowrap;
         min-width: 0;
-        @container mail-list (min-width: 960px) {
+        @container mail-list (min-width: 720px) {
           padding-left: 5px;
         }
       }
@@ -1306,7 +1319,7 @@ function loadData() {
         text-overflow: ellipsis;
         padding-left: 10px;
         color: var(--email-scroll-content-color);
-        @container mail-list (max-width: 959px) {
+        @container mail-list (max-width: 719px) {
           padding-left: 0;
           margin-top: 0;
         }
@@ -1322,13 +1335,13 @@ function loadData() {
     display: flex;
     padding-left: 15px;
     align-items: center;
-    @container mail-list (max-width: 959px) {
+    @container mail-list (max-width: 719px) {
       display: none;
     }
   }
 
   .email-right-skeleton {
-    @container mail-list (max-width: 959px) {
+    @container mail-list (max-width: 719px) {
       display: none;
     }
   }
@@ -1358,7 +1371,7 @@ function loadData() {
   width: 40px;
 }
 
-@container mail-list (max-width: 959px) {
+@container mail-list (max-width: 719px) {
   .pc-star {
     display: flex;
   }

@@ -49,7 +49,7 @@
       <button type="button" role="menuitem" class="w95-ditem" @click.stop="closeDeskMenu(); showAbout()">{{ $t('win95Properties') }}</button>
     </div>
 
-    <IdentityCard v-if="userStore.user && !idcardClosed" @close="closeIdcard" />
+    <IdentityCard v-if="userStore.user && !idcardClosed" v-show="idcardFront || winClosed || minimized" :class="{ 'is-raised': idcardFront }" @pointerdown.capture="idcardFront = true" @close="closeIdcard" />
 
     <!-- 主窗口：可拖动 / 最小化 / 最大化 / 关闭 -->
     <div
@@ -58,6 +58,10 @@
         class="w95-window"
         :class="{ maximized, hidden: minimized }"
         :style="winStyle"
+        :inert="minimized || undefined"
+        :aria-hidden="minimized || undefined"
+        @pointerdown.capture="idcardFront = false"
+        @focusin="idcardFront = false"
     >
       <div class="w95-titlebar" @mousedown="onTitlebarDown" @dblclick="toggleMax">
         <svg width="16" height="16" viewBox="0 0 16 16">
@@ -247,7 +251,9 @@ const shutdownScreen = ref(false)
 const iconSel = ref('')
 /* Closing and reopening the desktop card both persist across reloads. */
 const idcardClosed = ref(localStorage.getItem('w95-idcard-closed') === '1')
+const idcardFront = ref(false)
 function openIdcard() {
+  idcardFront.value = true
   idcardClosed.value = false
   localStorage.removeItem('w95-idcard-closed')
 }
@@ -309,10 +315,10 @@ function initWindowSize() {
     autoMaxed.value = true
     return
   }
-  win.w = Math.min(920, vw - 60)
-  win.h = Math.min(620, vh - 110)
-  win.x = Math.max(10, (vw - win.w) / 2 - 14)
-  win.y = Math.max(6, (vh - 28 - win.h) / 2 - 12)
+  win.w = Math.min(1440, vw - 112)
+  win.h = Math.min(900, vh - 100)
+  win.x = Math.max(12, (vw - win.w) / 2 + 24)
+  win.y = Math.max(12, (vh - 28 - win.h) / 2)
 }
 
 function handleResize() {

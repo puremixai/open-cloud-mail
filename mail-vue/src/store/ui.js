@@ -14,6 +14,9 @@ export const useUiStore = defineStore('ui', {
         /* 默认主题：Win95 复古模式（老用户由 index.html 的一次性迁移脚本切换） */
         win95: true,
         prevDark: false,
+        readingPane: true,
+        splitReader: false,
+        mailListWidth: 380,
         asideCount: {
             email: 0,
             send: 0,
@@ -30,6 +33,6 @@ export const useUiStore = defineStore('ui', {
         }
     },
     persist: {
-        pick: ['accountShow','dark','win95','prevDark'],
+        pick: ['accountShow','dark','win95','prevDark','readingPane','mailListWidth'],
     },
 })

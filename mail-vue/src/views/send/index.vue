@@ -13,10 +13,7 @@
                :type="'send'"
   >
     <template #first>
-      <Icon class="icon" @click="changeTimeSort" icon="material-symbols-light:timer-arrow-down-outline"
-            v-if="params.timeSort === 0" width="28" height="28"/>
-      <Icon class="icon" @click="changeTimeSort" icon="material-symbols-light:timer-arrow-up-outline" v-else
-            width="28" height="28"/>
+      <IconButton :action="params.timeSort === 0 ? 'sortAsc' : 'sortDesc'" :label="$t(params.timeSort === 0 ? 'ux.oldestFirst' : 'ux.newestFirst')" @click="changeTimeSort" />
     </template>
   </emailScroll>
 </template>
@@ -29,7 +26,8 @@ import {emailList, emailDelete} from "@/request/email.js";
 import {starAdd, starCancel} from "@/request/star.js";
 import {defineOptions, onMounted, reactive, ref, watch} from "vue";
 import router from "@/router/index.js";
-import {Icon} from "@iconify/vue";
+import IconButton from '@/components/icon-button/index.vue'
+import { useUiStore } from '@/store/ui.js'
 
 defineOptions({
   name: 'send'
@@ -56,13 +54,16 @@ function changeTimeSort() {
 }
 
 function jumpContent(email) {
+  if (useUiStore().splitReader && emailStore.contentData.source === 'send' && emailStore.contentData.email?.emailId === email.emailId) return
   emailStore.contentData.email = emailStore.toContentEmail(email)
   emailStore.contentData.admin = false
   emailStore.contentData.showUnread = false
   emailStore.contentData.delType = 'logic'
   emailStore.contentData.showStar = true
   emailStore.contentData.showReply = true
-  router.push('/mail')
+  emailStore.contentData.source = 'send'
+  if (useUiStore().splitReader) router.replace({ query: { ...router.currentRoute.value.query, message: email.emailId } })
+  else router.push({ path: '/mail', query: { message: email.emailId, source: 'send' } })
 }
 
 function addStar(email) {

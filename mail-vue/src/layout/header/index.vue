@@ -5,9 +5,11 @@
       <span class="breadcrumb-item">{{ $t(route.meta.title) }}</span>
     </div>
     <IconButton v-perm="'email:send'" class="writer-box" action="compose" :label="$t('newMail')" @click="openSend">
-      <span v-if="uiStore.win95" class="writer-label">{{ $t('newMail') }}</span>
+      <span class="writer-label">{{ $t('newMail') }}</span>
     </IconButton>
     <div class="toolbar">
+      <button v-if="['email','star','send','content'].includes(route.name)" type="button" class="reading-pane-toggle" :aria-pressed="uiStore.readingPane" @click="toggleReadingPane">{{ t('ux.readingPane') }}</button>
+      <button type="button" class="keyboard-help-button" @click="helpOpen = true">{{ t('ux.keyboardHelp') }}</button>
       <template v-if="!uiStore.win95">
         <IconButton :action="uiStore.dark ? 'sun' : 'moon'" :label="$t(uiStore.dark ? 'ux.lightTheme' : 'ux.darkTheme')" @click="openDark" />
         <IconButton action="monitor" :label="$t('win95Mode')" @click="openWin95" />
@@ -64,6 +66,14 @@
       </el-dropdown>
     </div>
   </div>
+  <el-dialog v-model="helpOpen" :title="t('ux.keyboardHelp')" width="min(420px, calc(100vw - 32px))" append-to-body>
+    <dl class="keyboard-help">
+      <div><dt>{{ t('ux.shortcutSearch') }}</dt><dd><kbd>/</kbd></dd></div>
+      <div><dt>{{ t('ux.shortcutCompose') }}</dt><dd><kbd>C</kbd></dd></div>
+      <div><dt>{{ t('ux.shortcutNext') }}</dt><dd><kbd>J</kbd> / <kbd>K</kbd></dd></div>
+      <div><dt>{{ t('ux.shortcutClose') }}</dt><dd><kbd>Esc</kbd></dd></div>
+    </dl><p class="shortcut-hint">{{ t('ux.shortcutHint') }}</p>
+  </el-dialog>
 </template>
 
 <script setup>
@@ -73,19 +83,42 @@ import {logoutSession} from '@/utils/session.js';
 import {Icon} from "@iconify/vue";
 import {useUiStore} from "@/store/ui.js";
 import {useUserStore} from "@/store/user.js";
-import {useRoute} from "vue-router";
-import {computed, ref} from "vue";
+import {useRoute, useRouter} from "vue-router";
+import {useEmailStore} from '@/store/email.js';
+import {computed, ref, onMounted, onBeforeUnmount} from "vue";
+import { isEditingTarget } from '@/utils/mail-navigation.js'
 import {useSettingStore} from "@/store/setting.js";
 import {hasPerm} from "@/perm/perm.js"
 import {useI18n} from "vue-i18n";
 
 const {t} = useI18n();
 const route = useRoute();
+const router = useRouter();
 const settingStore = useSettingStore();
 const userStore = useUserStore();
 const uiStore = useUiStore();
 const logoutLoading = ref(false)
 const userInfoShow = ref(false)
+const helpOpen = ref(false)
+function toggleReadingPane() {
+  uiStore.readingPane = !uiStore.readingPane
+  const { source, email } = useEmailStore().contentData
+  if (uiStore.readingPane && route.name === 'content' && ['email', 'star', 'send'].includes(source)) {
+    router.replace({ name: source, query: email?.emailId ? { message: email.emailId } : {} })
+  }
+}
+function shortcuts(event) {
+  if (event.ctrlKey || event.metaKey || event.altKey || isEditingTarget(event.target) || helpOpen.value) return
+  if ([...document.querySelectorAll('[role="dialog"]')].some(el => el.getClientRects().length)) return
+  if (event.key === '/') {
+    const search = document.querySelector('#inbox-search-input')
+    if (search) { event.preventDefault(); search.focus(); search.select() }
+  }
+  if (event.key.toLowerCase() === 'c' && hasPerm('email:send')) { event.preventDefault(); openSend() }
+  if (event.key === '?') { event.preventDefault(); helpOpen.value = true }
+}
+onMounted(() => window.addEventListener('keydown', shortcuts))
+onBeforeUnmount(() => window.removeEventListener('keydown', shortcuts))
 
 const accountCount = computed(() => {
   return userStore.user.role.accountCount

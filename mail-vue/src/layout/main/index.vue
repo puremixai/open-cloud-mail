@@ -1,16 +1,18 @@
 <template>
   <div :class="accountShow && hasPerm('account:query') ? 'main-box-show' : 'main-box-hide'">
     <div :class="accountShow && hasPerm('account:query') ? 'block-show' : 'block-hide'" @click="uiStore.accountShow = false"></div>
-    <account  :class="accountShow && hasPerm('account:query') ? 'show' : 'hide'" />
-    <router-view class="main-view" v-slot="{ Component,route }">
+    <account :class="accountShow && hasPerm('account:query') ? 'show' : 'hide'"
+             :inert="!accountShow || !hasPerm('account:query')" :aria-hidden="!accountShow || !hasPerm('account:query')" />
+    <MailWorkspace><router-view class="main-view" v-slot="{ Component,route }">
       <keep-alive :include="['email','all-email','send','sys-setting','star','user','role','analysis','reg-key','draft']">
         <component :is="Component" :key="route.name"/>
       </keep-alive>
-    </router-view>
+    </router-view></MailWorkspace>
   </div>
 </template>
 <script setup>
 import account from '@/layout/account/index.vue'
+import MailWorkspace from '@/components/mail-workspace/index.vue'
 import {useUiStore} from "@/store/ui.js";
 import {useSettingStore} from "@/store/setting.js";
 import {computed, onBeforeUnmount, onMounted, watch} from "vue";
@@ -94,7 +96,7 @@ const handleResize = () => {
   if (['content','email','send'].includes(route.meta.name)) {
     if (innerWidth !==  window.innerWidth) {
       innerWidth = window.innerWidth;
-      uiStore.accountShow = window.innerWidth >= 767;
+      if (window.innerWidth < 767) uiStore.accountShow = false;
     }
   }
 }

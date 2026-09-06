@@ -1,8 +1,10 @@
-import {createRouter, createWebHistory} from 'vue-router'
+import {createRouter, createWebHistory, createWebHashHistory} from 'vue-router'
 import NProgress from 'nprogress';
 import {useUiStore} from "@/store/ui.js";
 import {useSettingStore} from "@/store/setting.js";
 import {cvtR2Url} from "@/utils/convert.js";
+import { useEmailStore } from '@/store/email.js'
+import { mailRouteSelection } from '@/utils/mail-navigation.js'
 
 const routes = [
     {
@@ -83,7 +85,8 @@ const routes = [
 
 
 const router = createRouter({
-    history: createWebHistory(import.meta.env.BASE_URL),
+    history: import.meta.env.DEV && window.location.pathname === '/design-preview.html'
+        ? createWebHashHistory() : createWebHistory(import.meta.env.BASE_URL),
     routes
 })
 
@@ -123,6 +126,14 @@ router.beforeEach((to, from, next) => {
         return next(from.path)
     }
 
+    const selection = mailRouteSelection(to)
+    if (selection) {
+        const mailStore = useEmailStore()
+        if (mailStore.contentData.email?.emailId !== selection.id || mailStore.contentData.source !== selection.source) {
+            mailStore.contentData = { email: { emailId: selection.id }, source: selection.source,
+                admin: false, delType: 'logic', showStar: true, showReply: true, showUnread: selection.source === 'email' }
+        }
+    }
     next()
 
 })
@@ -165,9 +176,7 @@ router.afterEach((to) => {
 
     const uiStore = useUiStore()
     if (to.meta.menu) {
-        if (['content', 'email', 'send'].includes(to.meta.name)) {
-            uiStore.accountShow = window.innerWidth > 767;
-        } else {
+        if (!['content', 'email', 'send'].includes(to.meta.name)) {
             uiStore.accountShow = false
         }
     }

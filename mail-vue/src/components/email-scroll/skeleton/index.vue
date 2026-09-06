@@ -124,7 +124,7 @@ import {Icon} from "@iconify/vue";
   top: 2px;
 }
 
-@container mail-list (max-width: 959px) {
+@container mail-list (max-width: 719px) {
   .pc-star {
     display: flex;
   }

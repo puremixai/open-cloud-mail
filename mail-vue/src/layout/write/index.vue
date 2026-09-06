@@ -18,7 +18,8 @@
         <IconButton action="close" :label="t('ux.closeCompose')" :disabled="sending || draftBusy" @click="close" />
       </div>
       <div class="container" :inert="sending || draftBusy || undefined">
-        <el-input-tag :aria-label="t('recipient')" @add-tag="addTagChange" tag-type="primary" @input="inputChange" size="default" v-model="form.receiveEmail" >
+        <div class="compose-field recipient-field" @paste="pasteRecipients">
+        <el-input-tag :aria-label="t('recipient')" :aria-invalid="!!recipientError" :aria-describedby="recipientError ? 'recipient-error' : 'recipient-help'" @add-tag="addTagChange" tag-type="primary" @input="inputChange" size="default" v-model="form.receiveEmail" >
           <template #prefix>
             <div class="item-title" >{{ $t('recipient') }}</div>
             <el-select
@@ -46,7 +47,13 @@
             </div>
           </template>
         </el-input-tag>
-        <el-input v-model="form.subject" :aria-label="t('subject')" :placeholder="t('subject')" />
+        <p v-if="recipientError" id="recipient-error" class="field-error" role="alert">{{ recipientError }}</p>
+        <p v-else id="recipient-help" class="recipient-hint">{{ t('ux.recipientHelp') }}</p>
+        </div>
+        <div class="compose-field subject-field">
+          <el-input v-model="form.subject" :aria-label="t('subject')" :aria-invalid="!!subjectError" :aria-describedby="subjectError ? 'subject-error' : undefined" :placeholder="t('subject')" @input="subjectError = ''" />
+          <p v-if="subjectError" id="subject-error" class="field-error" role="alert">{{ subjectError }}</p>
+        </div>
         <tinyEditor :def-value="defValue" ref="editor" @change="change" @focus="focusChange" />
         <div class="button-item">
           <IconButton action="attachment" class="att-add" :label="t('ux.attachFiles')" @click="chooseFile" />
@@ -109,6 +116,7 @@
 </template>
 <script setup>
 import {createSendAttempt} from '@/utils/send-attempt.js'
+import { parseRecipients } from '@/utils/recipients.js'
 import {createComposeRecovery, persistDraft, draftVersion} from '@/utils/compose-recovery.js'
 import IconButton from '@/components/icon-button/index.vue'
 import {endSession} from '@/utils/session.js'
@@ -390,23 +398,21 @@ function inputChange(value) {
 
 }
 
-function addTagChange(val) {
-
-  const emails = Array.from(new Set(
-      val.split(/[,，]/).map(item => item.trim()).filter(item => item)
-  ));
-
-  form.receiveEmail.splice(form.receiveEmail.length - 1, 1)
-
-  let has = false
-  emails.forEach(email => {
-    if (isEmail(email) && !form.receiveEmail.includes(email)) {
-      form.receiveEmail.push(email)
-      has = true
-    }
-  })
-  if (selectStatus && has) openSelect()
+const recipientError = ref(''), subjectError = ref('')
+function acceptRecipients(value, existing) {
+  const result = parseRecipients(value, existing)
+  form.receiveEmail = result.accepted
+  recipientError.value = result.rejected.length ? t('ux.invalidRecipients', { addresses: result.rejected.join('、') }) : ''
+  if (selectStatus && result.accepted.length) openSelect()
 }
+function addTagChange(val) { acceptRecipients(val, form.receiveEmail.slice(0, -1)) }
+function pasteRecipients(event) {
+  const text = event.clipboardData?.getData('text')
+  if (!text || !/[,，;；\n\r]/.test(text)) return
+  event.preventDefault()
+  acceptRecipients(text, form.receiveEmail)
+}
+watch(show, () => { recipientError.value = ''; subjectError.value = '' })
 
 function clearContent() {
   ElMessageBox.confirm(t('clearContentConfirm'), {
@@ -464,7 +470,14 @@ function chooseFile() {
 async function sendEmail() {
   if (attachmentReads.value || draftBusy.value) return
 
+  if (recipientError.value) {
+    composerPanel.value?.querySelector('.recipient-field input')?.focus()
+    return
+  }
+
   if (form.receiveEmail.length === 0) {
+    recipientError.value = t('emptyRecipientMsg')
+    composerPanel.value?.querySelector('.recipient-field input')?.focus()
     ElMessage({
       message: t('emptyRecipientMsg'),
       type: 'error',
@@ -474,6 +487,8 @@ async function sendEmail() {
   }
 
   if (!form.subject) {
+    subjectError.value = t('emptySubjectMsg')
+    composerPanel.value?.querySelector('.subject-field input')?.focus()
     ElMessage({
       message: t('emptySubjectMsg'),
       type: 'error',
@@ -775,6 +790,9 @@ const handleKeyDown = (event) => {
 onMounted(() => {
   window.addEventListener('keydown', handleKeyDown)
   window.addEventListener('beforeunload', beforeUnload)
+  window.visualViewport?.addEventListener('resize', updateViewport)
+  window.visualViewport?.addEventListener('scroll', updateViewport)
+  updateViewport()
   void loadRecoveries()
 });
 
@@ -784,7 +802,16 @@ onUnmounted(() => {
   composeGeneration++
   window.removeEventListener('keydown', handleKeyDown)
   window.removeEventListener('beforeunload', beforeUnload)
+  window.visualViewport?.removeEventListener('resize', updateViewport)
+  window.visualViewport?.removeEventListener('scroll', updateViewport)
 });
+
+function updateViewport() {
+  const viewport = window.visualViewport
+  if (!viewport || !composerPanel.value) return
+  composerPanel.value.style.setProperty('--compose-viewport-height', `${viewport.height}px`)
+  composerPanel.value.style.setProperty('--compose-viewport-top', `${viewport.offsetTop}px`)
+}
 
 function close() {
   if (!show.value || sending.value || draftBusy.value) return
@@ -846,7 +873,8 @@ function close() {
     .title {
       display: flex;
       justify-content: space-between;
-      margin-bottom: 10px;
+      align-items: center;
+      margin: 0;
 
       .title-left {
         align-items: center;
@@ -855,6 +883,8 @@ function close() {
       }
 
       .title-text {
+        display: flex;
+        align-items: center;
       }
 
       .sender {
@@ -970,8 +1000,10 @@ function close() {
   .send .write-box .container .button-item .att-list { grid-column: 1 / -1; grid-row: 2; padding: 6px 0 0; }
   .send .write-box .container .button-item > div:last-child { grid-column: 4; grid-row: 1; }
   .send .write-box .title .title-left { min-width: 0; }
+  .send .write-box .title { min-height: 44px; padding: 8px 12px; margin: 0; }
+  .send .write-box .title .title-text svg { width: 22px; height: 22px; }
   .send .write-box .title .sender-name { display: none; }
-  .send .write-box { height: 100dvh; padding-bottom: max(12px, env(safe-area-inset-bottom)); }
+  .send .write-box { height: 100%; padding-bottom: max(12px, env(safe-area-inset-bottom)); }
 }
 
 .email-row {

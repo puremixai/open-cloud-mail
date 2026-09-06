@@ -16,13 +16,13 @@
   >
     <template #filters>
       <form class="inbox-search" role="search" @submit.prevent="submitSearch">
-        <label for="inbox-search-input">{{ t('ux.searchInbox') }}</label>
+        <label class="sr-only" for="inbox-search-input">{{ t('ux.searchInbox') }}</label>
         <div class="search-input-row">
-          <input id="inbox-search-input" type="search" v-model="searchInput" :placeholder="t('ux.searchSenderSubject')" maxlength="200" />
+          <input id="inbox-search-input" type="search" v-model="searchInput" :placeholder="t('ux.searchPlaceholder')" :title="t('ux.searchHint')" maxlength="200" autocomplete="off" />
           <button class="search-submit" type="submit">{{ t('ux.searchMail') }}</button>
           <IconButton v-if="params.search || searchInput" class="search-clear" data-test="clear-search" action="clear" :label="t('ux.clearSearch')" @click="clearSearch" />
         </div>
-        <span class="search-scope">{{ t(Number(accountStore.currentAccount.allReceive) === 1 ? 'ux.searchAllMailboxes' : 'ux.searchCurrentInbox') }}<span v-if="params.search" role="status"> · {{ scroll.loading || scroll.refreshing ? t('ux.searchingMail') : scroll.listError ? t('mailLoadFailed') : t('ux.searchResults', { count: scroll.total || 0 }) }}</span></span>
+        <span v-if="params.search" class="search-scope" role="status">{{ t(Number(accountStore.currentAccount.allReceive) === 1 ? 'ux.searchAllMailboxes' : 'ux.searchCurrentInbox') }} · {{ scroll.loading || scroll.refreshing ? t('ux.searchingMail') : scroll.listError ? t('mailLoadFailed') : t('ux.searchResults', { count: scroll.total || 0 }) }}</span>
       </form>
     </template>
     <template #empty-action v-if="params.search"><button type="button" @click="clearSearch">{{ t('ux.clearSearch') }}</button></template>
@@ -44,6 +44,7 @@ import {onMounted, reactive, ref, watch} from "vue";
 import {useMailPolling} from '@/utils/mail-polling.js';
 import router from "@/router/index.js";
 import IconButton from '@/components/icon-button/index.vue'
+import { useUiStore } from '@/store/ui.js'
 import { useI18n } from 'vue-i18n'
 import { useRoute } from 'vue-router'
 
@@ -65,6 +66,11 @@ const params = reactive({
 
 function submitSearch() {
   params.search = searchInput.value.trim()
+  if (emailStore.contentData.source === 'email') emailStore.contentData.email = null
+  if (route.query?.message) {
+    const query = { ...route.query }; delete query.message
+    router.replace({ query })
+  }
   scroll.value.refreshList(true)
 }
 function clearSearch() { searchInput.value = ''; submitSearch() }
@@ -84,6 +90,7 @@ function changeTimeSort() {
 }
 
 function jumpContent(email) {
+  if (useUiStore().splitReader && emailStore.contentData.source === 'email' && emailStore.contentData.email?.emailId === email.emailId) return
   emailStore.contentData.email = emailStore.toContentEmail(email)
   emailStore.contentData.admin = false
   emailStore.contentData.showUnread = true
@@ -91,7 +98,9 @@ function jumpContent(email) {
   emailStore.contentData.showUnread = true
   emailStore.contentData.showStar = true
   emailStore.contentData.showReply = true
-  router.push('/mail')
+  emailStore.contentData.source = 'email'
+  if (useUiStore().splitReader) router.replace({ query: { ...router.currentRoute.value.query, message: email.emailId } })
+  else router.push({ path: '/mail', query: { message: email.emailId, source: 'email' } })
 }
 
 useMailPolling(async (signal, valid) => {

@@ -5,6 +5,7 @@ import {endSession} from '@/utils/session.js';
 import router from './router';
 import './style.css';
 import './style-win95.css';
+import './mail-design.css';
 import { init } from '@/init/init.js';
 import { createPinia } from 'pinia';
 import piniaPersistedState from 'pinia-plugin-persistedstate';

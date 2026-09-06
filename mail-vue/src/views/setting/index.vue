@@ -1,5 +1,5 @@
 <template>
-  <div class="box">
+  <div class="box settings-page">
     <div class="container">
       <div class="title">{{$t('profile')}}</div>
       <div class="item">

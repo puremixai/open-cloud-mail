@@ -1,8 +1,10 @@
 <template>
+  <a class="skip-link" href="#mail-main" @click.prevent="focusMail">{{ $t('ux.skipToMail') }}</a>
   <Win95Frame v-if="userStore.user.email">
     <el-container class="layout">
       <el-aside
           class="aside"
+          :inert="!uiStore.asideShow" :aria-hidden="!uiStore.asideShow"
           :class="uiStore.asideShow ? 'aside-show' : 'el-aside-hide'">
         <Aside />
       </el-aside>
@@ -11,7 +13,7 @@
           @click="uiStore.asideShow = false"
       ></div>
       <el-container class="main-container">
-        <el-main>
+        <el-main id="mail-main" tabindex="-1">
           <el-header>
             <Header />
           </el-header>
@@ -21,6 +23,7 @@
     </el-container>
   </Win95Frame>
   <writer v-if="userStore.user.email" ref="writerRef" />
+  <ConnectionStatus v-if="userStore.user.email" />
 </template>
 
 <script setup>
@@ -34,9 +37,11 @@ import Win95Frame from '@/layout/win95/frame.vue'
 import { ref, watch, onMounted, onBeforeUnmount } from 'vue'
 import {useUiStore} from "@/store/ui.js";
 import writer from '@/layout/write/index.vue'
+import ConnectionStatus from '@/components/connection-status/index.vue'
 
 const uiStore = useUiStore();
 const writerRef = ref({})
+function focusMail() { document.getElementById('mail-main')?.focus() }
 const isMobile = ref(window.innerWidth < 1025)
 const sidebarPreference = { desktop: isMobile.value ? true : uiStore.asideShow, mobile: isMobile.value ? uiStore.asideShow : false }
 let resizing = false

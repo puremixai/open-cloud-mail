@@ -1,11 +1,15 @@
 <template>
-  <div class="box">
+  <article class="box mail-detail" :class="{ 'is-embedded': embedded }" :aria-label="email.subject || t('message')">
     <div class="header-actions" role="group" :aria-label="t('ux.mailActions')">
-      <IconButton action="back" :label="t('ux.backToMail')" @click="handleBack"/>
+      <IconButton :action="embedded ? 'close' : 'back'" :label="t('ux.backToMail')" @click="handleBack"/>
       <IconButton v-perm="'email:delete'" action="delete" :label="t('delete')" :disabled="!email.emailId" :loading="deleteLoading" @click="handleDelete"/>
       <IconButton v-if="emailStore.contentData.showStar" action="star" :label="t(email.isStar ? 'ux.unstarMail' : 'ux.starMail')" :aria-pressed="!!email.isStar" :loading="starRequests.has(email.emailId)" :disabled="!email.emailId" @click="changeStar" />
       <IconButton v-if="emailStore.contentData.showReply" v-perm="'email:send'" action="reply" :label="t('reply')" :loading="detailLoading" :disabled="!email.emailId" @click="openReply" />
       <IconButton v-if="emailStore.contentData.showReply" v-perm="'email:send'" action="forward" :label="t('forward')" :loading="detailLoading" :disabled="!email.emailId" @click="openForward" />
+      <div class="message-navigation" v-if="navigation.index >= 0">
+        <button type="button" :disabled="!navigation.previous" @click="navigateMail(navigation.previous)">{{ t('ux.previousMail') }}</button>
+        <button type="button" :disabled="!navigation.next" @click="navigateMail(navigation.next)">{{ t('ux.nextMail') }}</button>
+      </div>
     </div>
     <div v-if="!email.emailId" role="status">{{ t('mailSelectionRequired') }}</div>
     <div v-if="detailLoading || attachmentLoading" role="status">{{ t('mailDetailLoading') }}</div>
@@ -15,9 +19,7 @@
     <el-scrollbar v-if="detailReady" class="scrollbar">
       <el-backtop target=".scrollbar .el-scrollbar__wrap" :visibility-height="300" :right="30" :bottom="40"/>
       <div class="container">
-        <div class="email-title">
-          {{ email.subject }}
-        </div>
+        <h1 class="email-title" tabindex="-1">{{ email.subject || t('ux.noSubject') }}</h1>
         <div class="content">
           <div class="email-info">
             <div>
@@ -27,7 +29,10 @@
                   <span><{{ email.sendEmail }}></span>
                 </div>
               </div>
-              <div class="receive"><span class="source">{{$t('recipient')}}</span><span class="receive-email">{{  formateReceive(email.recipient) }}</span></div>
+              <details class="recipient-details"><summary>{{ t('ux.messageDetails') }}</summary>
+                <div class="receive"><span class="source">{{$t('recipient')}}</span><span class="receive-email">{{ formateReceive(email.recipient) }}</span></div>
+                <div class="receive" v-if="formateReceive(email.cc)"><span class="source">{{ t('ux.ccLabel') }}</span><span class="receive-email">{{ formateReceive(email.cc) }}</span></div>
+              </details>
               <div class="date">
                 <div>{{ formatDetailDate(email.createTime) }}</div>
               </div>
@@ -65,6 +70,10 @@
               </div>
             </div>
           </div>
+          <div class="reader-reply" v-if="emailStore.contentData.showReply && detailReady">
+            <el-button v-perm="'email:send'" @click="openReply">{{ t('reply') }}</el-button>
+            <el-button v-perm="'email:send'" text @click="openForward">{{ t('forward') }}</el-button>
+          </div>
         </div>
       </div>
     </el-scrollbar>
@@ -74,13 +83,13 @@
         show-progress
         @close="closePreview"
     />
-  </div>
+  </article>
 </template>
 <script setup>
 import ShadowHtml from '@/components/shadow-html/index.vue'
 import {computed, reactive, ref, watch, onMounted, onUnmounted} from "vue";
 import {useRouter} from 'vue-router'
-import {ElMessage, ElMessageBox} from 'element-plus'
+import {ElMessage, ElMessageBox, ElButton} from 'element-plus'
 import {emailDelete, emailRead} from "@/request/email.js";
 import {Icon} from "@iconify/vue";
 import IconButton from '@/components/icon-button/index.vue'
@@ -96,12 +105,29 @@ import {allEmailDelete} from "@/request/all-email.js";
 import {useUiStore} from "@/store/ui.js";
 import {useI18n} from "vue-i18n";
 import {EmailUnreadEnum} from "@/enums/email-enum.js";
+import { messageNeighbors, isEditingTarget } from '@/utils/mail-navigation.js'
+
+const props = defineProps({ embedded: Boolean })
+const emit = defineEmits(['close'])
 
 const uiStore = useUiStore();
 const settingStore = useSettingStore();
 const accountStore = useAccountStore();
 const emailStore = useEmailStore();
 const router = useRouter()
+const sourceList = computed(() => {
+  const source = emailStore.contentData.source
+  return ({ email: emailStore.emailScroll, star: emailStore.starScroll, send: emailStore.sendScroll }[source])?.emailList || []
+})
+const navigation = computed(() => messageNeighbors(sourceList.value, email.value.emailId))
+function navigateMail(item) {
+  if (item) {
+    emailStore.contentData.email = emailStore.toContentEmail(item)
+    const query = { ...router.currentRoute?.value.query, message: item.emailId }
+    if (!props.embedded) query.source = emailStore.contentData.source
+    router.replace?.({ query })
+  }
+}
 const email = computed(() => emailStore.contentData.email || {
   emailId: 0,
   attList: [],
@@ -182,10 +208,14 @@ onUnmounted(() => {
   window.removeEventListener('keydown', handleKeyDown)
 })
 function handleKeyDown(event) {
-  if (event.key !== 'Escape' || showPreview.value || document.querySelector('.el-message-box')) return
+  if (showPreview.value || [...document.querySelectorAll('.el-message-box, .el-dialog')].some(el => el.getClientRects().length)) return
   const writeBox = document.querySelector('.write-box')
   if (writeBox && writeBox.offsetParent !== null) return
-  handleBack()
+  if (event.key === 'Escape') { event.preventDefault(); handleBack(); return }
+  if (isEditingTarget(event.target) || event.ctrlKey || event.metaKey || event.altKey) return
+  if (event.target?.closest('.email-container')) return
+  if (event.key === 'j') { event.preventDefault(); navigateMail(navigation.value.next) }
+  if (event.key === 'k') { event.preventDefault(); navigateMail(navigation.value.previous) }
 }
 async function compose(method) {
   const id = email.value.emailId, admin = emailStore.contentData.admin
@@ -270,8 +300,10 @@ function isImage(filename) {
 
 function formateReceive(recipient) {
   if (!recipient) return ''
-  recipient = JSON.parse(recipient)
-  return recipient.map(item => item.address).join(', ')
+  try {
+    const addresses = typeof recipient === 'string' ? JSON.parse(recipient) : recipient
+    return Array.isArray(addresses) ? addresses.map(item => typeof item === 'string' ? item : item.address).filter(Boolean).join(', ') : ''
+  } catch { return String(recipient) }
 }
 
 async function changeStar() {
@@ -305,7 +337,10 @@ async function changeStar() {
 }
 
 const handleBack = () => {
-  router.back()
+  if (props.embedded) emit('close')
+  else if (window.history.state?.back) router.back()
+  else if (router.replace) router.replace({ name: emailStore.contentData.source || 'email' })
+  else router.back()
 }
 
 const handleDelete = async () => {
@@ -324,7 +359,7 @@ const handleDelete = async () => {
     emailStore.invalidateDetail([id])
     emailStore.deleteIds = [id]
     ElMessage({ message: t('delSuccessMsg'), type: 'success', plain: true })
-    if (selected(id, admin, epoch)) router.back()
+    if (selected(id, admin, epoch)) handleBack()
   } catch (error) {
     if (error !== 'cancel' && error !== 'close' && selected(id, admin, epoch) && !isCanceled(error)) deleteError.value = true
   } finally { if (selected(id, admin, epoch)) deleteLoading.value = false }

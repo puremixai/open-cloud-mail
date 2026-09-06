@@ -8,7 +8,7 @@ import { useUserStore } from '@/store/user.js'
 
 export const staleRequest = () => new DOMException('Mail context changed', 'AbortError')
 export const isCanceled = error => error?.name === 'AbortError' || error?.code === 'ERR_CANCELED'
-const blankContent = () => ({ email: null, admin: false, delType: null, showStar: true, showReply: true, showUnread: false })
+const blankContent = () => ({ email: null, source: null, admin: false, delType: null, showStar: true, showReply: true, showUnread: false })
 const TTL = 5 * 60 * 1000
 const MAX_DETAILS = 30
 
