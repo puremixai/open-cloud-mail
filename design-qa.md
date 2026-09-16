@@ -1,4 +1,4 @@
-# Design QA — Cloud Mail
+# Design QA — PureMail
 
 日期：2026-09-06
 

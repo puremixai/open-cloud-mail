@@ -133,7 +133,7 @@ const oauthService = {
 		const userRes = await fetch('https://api.github.com/user', {
 			headers: {
 				Authorization: 'Bearer ' + token.access_token,
-				'User-Agent': 'cloud-mail'
+				'User-Agent': 'PureMail'
 			}
 		});
 

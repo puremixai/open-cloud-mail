@@ -20,7 +20,7 @@ beforeEach(() => {
   localStorage.clear()
   setActivePinia(createPinia())
   useUserStore().user = { name: 'Example', userId: 42, email: 'a.very.long.email@example.com', account: { createTime: '2026-09-06' }, role: {} }
-  useSettingStore().settings = { title: 'Cloud Mail' }
+  useSettingStore().settings = { title: 'PureMail' }
   writeText = vi.fn().mockResolvedValue()
   vi.stubGlobal('navigator', { clipboard: { writeText } })
   width = 1440; height = 870; cardWidth = 340; cardHeight = 214

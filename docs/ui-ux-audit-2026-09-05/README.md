@@ -6,7 +6,7 @@
 
 本次为审查，不修改产品代码。检查范围包含登录、布局、Win95 桌面、收件箱与共享列表、邮件详情、写信、账户切换、个人设置，以及管理列表的部分实现。公开站点来自项目 `.env.remote` 中配置的 skymail.ink。浏览器验证覆盖公开登录页的桌面视口 1707×842 和手机模拟视口 390×844；站点需要登录，未进入账户或执行发送、删除、注册。登录后页面结论来自当前工作区代码，不能替代实际登录后的交互验收，也未确认线上构建与工作区完全相同。
 
-证据截图：[桌面登录页](D:/VibeProjects/cloud-mail-private/docs/ui-ux-audit-2026-09-05/login-desktop.png)、[手机登录页](D:/VibeProjects/cloud-mail-private/docs/ui-ux-audit-2026-09-05/login-mobile.png)。浏览器模拟视口检查后已恢复。手机视口 documentElement.scrollWidth 与 innerWidth 均为 390，当前登录页无横向溢出；不代表软键盘和真机适配已通过。
+证据截图：[桌面登录页](login-desktop.png)、[手机登录页](login-mobile.png)。浏览器模拟视口检查后已恢复。手机视口 documentElement.scrollWidth 与 innerWidth 均为 390，当前登录页无横向溢出；不代表软键盘和真机适配已通过。
 
 优先级：P1 为影响理解、可用性或内容保留，应优先处理；P2 为效率和一致性提升；P3 为细节打磨。以下“目标”均为建议，未实施。
 

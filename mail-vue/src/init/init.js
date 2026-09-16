@@ -9,7 +9,7 @@ import {useEmailStore, staleRequest} from '@/store/email.js';
 import i18n from "@/i18n/index.js";
 
 export async function init() {
-    document.title = '\u200B'
+    document.title = 'PureMail'
 
     const settingStore = useSettingStore();
     const userStore = useUserStore();
@@ -39,15 +39,14 @@ export async function init() {
             // A current-session 401 already cleared identity; the public shell can load.
             settingStore.settings = s;
             settingStore.domainList = s.domainList;
+            document.title = settingStore.siteTitle;
             return;
         }
         if (epoch !== useEmailStore().syncSession()) throw staleRequest();
         setting = s;
         settingStore.settings = setting;
         settingStore.domainList = setting.domainList;
-        if (setting.title) {
-            document.title = setting.title;
-        }
+        document.title = settingStore.siteTitle;
 
         if (user) {
             accountStore.currentAccountId = user.account.accountId;
@@ -64,8 +63,6 @@ export async function init() {
         setting = await websiteConfig();
         settingStore.settings = setting;
         settingStore.domainList = setting.domainList;
-        if (setting.title) {
-            document.title = setting.title;
-        }
+        document.title = settingStore.siteTitle;
     }
 }

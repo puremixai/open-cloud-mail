@@ -433,10 +433,10 @@
           </div>
 
           <div class="settings-card about">
-            <div class="card-title">{{ $t('about') }}</div>
+            <div class="card-title">{{ $t('about') }} PureMail</div>
             <div class="card-content">
               <div class="concerning-item">
-                <span>{{ $t('version') }} :</span>
+                <span>{{ $t('upstreamVersion') }} :</span>
                 <el-badge is-dot :hidden="!hasUpdate">
                   <el-button @click="jump('https://github.com/maillab/cloud-mail/releases')">
                     {{ currentVersion }}
@@ -447,24 +447,33 @@
                 </el-badge>
               </div>
               <div class="concerning-item">
-                <span>{{ $t('community') }} : </span>
+                <span>{{ $t('projectRepository') }} : </span>
                 <div class="community">
-                  <el-button @click="jump('https://github.com/maillab/cloud-mail')">
-                    Github
+                  <el-button @click="jump('https://github.com/puremixai/puremail')">
+                    PureMail
                     <template #icon>
                       <Icon icon="codicon:github-inverted" width="22" height="22"/>
                     </template>
                   </el-button>
-                  <el-button @click="jump('https://t.me/cloud_mail_tg')">
-                    Telegram
+                  <el-button @click="jump('https://github.com/puremixai/puremail/issues')">
+                    {{ $t('issueTracker') }}
                     <template #icon>
-                      <Icon icon="logos:telegram" width="30" height="30"/>
+                      <Icon icon="codicon:issues" width="22" height="22"/>
                     </template>
                   </el-button>
                 </div>
               </div>
               <div class="concerning-item">
-                <span>{{ $t('support') }} : </span>
+                <span>{{ $t('upstreamProject') }} : </span>
+                <el-button @click="jump('https://github.com/maillab/cloud-mail')">
+                  Cloud Mail
+                  <template #icon>
+                    <Icon icon="codicon:github-inverted" width="22" height="22"/>
+                  </template>
+                </el-button>
+              </div>
+              <div class="concerning-item">
+                <span>{{ $t('supportUpstream') }} : </span>
                 <el-button @click="jump('https://doc.skymail.ink/support.html')">
                   {{ t('supportDesc') }}
                   <template #icon>
@@ -474,7 +483,7 @@
               </div>
               <div class="concerning-item">
                 <span>{{ $t('help') }} : </span>
-                <el-button @click="jump('https://doc.skymail.ink')">
+                <el-button @click="jump('https://github.com/puremixai/puremail#readme')">
                   {{ t('document') }}
                   <template #icon>
                     <Icon color="#79D6B5" icon="fluent-color:document-32" width="18" height="18"/>
@@ -1113,6 +1122,7 @@ const resendList = computed(() => {
 });
 
 function getUpdate() {
+  // This is the upstream baseline version, not a PureMail release version.
   if (getUpdateErrorCount > 5 || !getUpdateErrorCount) return
   axios.get('https://api.github.com/repos/maillab/cloud-mail/releases/latest').then(({data}) => {
     hasUpdate.value = data.name !== currentVersion
@@ -1122,7 +1132,7 @@ function getUpdate() {
     setTimeout(() => {
       getUpdate()
     }, 2000)
-    console.error('检查更新失败：', e)
+    console.error('检查上游更新失败：', e)
   })
 }
 

@@ -1,4 +1,4 @@
-name: 🚀 Deploy cloud-mail to Cloudflare Workers
+name: 🚀 Deploy PureMail to Cloudflare Workers
 
 on:
   push:

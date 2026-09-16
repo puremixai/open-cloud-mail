@@ -9,7 +9,7 @@ localStorage.setItem('token', 'design-preview-only')
 localStorage.setItem('setting', JSON.stringify({ lang: query.get('lang') || 'zh' }))
 localStorage.setItem('ui', JSON.stringify({ readingPane: true, mailListWidth: 380, ...savedUi, win95: theme === 'win95', dark: theme === 'dark', prevDark: false, accountShow: false }))
 document.documentElement.className = theme === 'win95' ? 'win95' : theme === 'dark' ? 'dark' : ''
-const account = { accountId: 1, email: 'lin@cloudmail.example', name: '林', allReceive: 0 }
+const account = { accountId: 1, email: 'lin@puremail.example', name: '林', allReceive: 0 }
 const user = { userId: 2048, email: account.email, name: '林', account, sendCount: 24,
   permKeys: ['email:send', 'email:delete', 'account:query', 'my:delete'],
   role: { name: '个人邮箱', accountCount: 5, sendCount: 100, sendType: 'day' } }
@@ -42,7 +42,7 @@ http.defaults.adapter = async config => {
   const url = new URL(config.url, location.origin), path = url.pathname, p = config.params || {}
   const body = typeof config.data === 'string' ? JSON.parse(config.data) : config.data || {}
   let data = null
-  if (path === '/setting/websiteConfig') data = { title: 'Cloud Mail', domainList: ['@cloudmail.example'], manyEmail: 0, send: 0, addEmail: 1, notice: 1, autoRefresh: 0, r2Domain: '', background: '', loginOpacity: 1, minEmailPrefix: 3 }
+  if (path === '/setting/websiteConfig') data = { title: 'PureMail', domainList: ['@puremail.example'], manyEmail: 0, send: 0, addEmail: 1, notice: 1, autoRefresh: 0, r2Domain: '', background: '', loginOpacity: 1, minEmailPrefix: 3 }
   else if (path === '/my/loginUserInfo') data = user
   else if (path === '/account/list') data = p.accountId ? [] : [account]
   else if (path === '/email/list' || path === '/star/list') {

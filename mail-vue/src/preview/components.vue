@@ -1,6 +1,6 @@
 <template>
   <main class="specimen">
-    <header><p>Cloud Mail / Design system</p><h1>界面的共同语言</h1><p>真实组件、三种主题，以及每个动作的反馈。</p>
+    <header><p>PureMail / Design system</p><h1>界面的共同语言</h1><p>真实组件、三种主题，以及每个动作的反馈。</p>
       <nav aria-label="预览主题"><button v-for="item in themes" :key="item.value" :aria-pressed="theme === item.value" @click="changeTheme(item.value)">{{ item.label }}</button></nav>
     </header>
     <section><h2>01 / 操作</h2><div class="specimen-row">

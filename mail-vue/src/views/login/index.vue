@@ -3,7 +3,7 @@
     <div v-if="settingStore.settings.background" class="background-layer" :style="background"></div>
     <div class="form-wrapper">
       <div class="container">
-        <span class="form-title" v-if="settingStore.settings.title">{{ settingStore.settings.title }}</span>
+        <span class="form-title">{{ settingStore.siteTitle }}</span>
         <span class="form-desc" v-if="show === 'login'">{{ $t('loginTitle') }}</span>
         <span class="form-desc" v-else>{{ $t('regTitle') }}</span>
         <div v-show="show === 'login'">
@@ -498,9 +498,7 @@ function refreshWebsiteConfig() {
     if (!suffix.value && setting.domainList.length > 0) {
       suffix.value = setting.domainList[0]
     }
-    if (setting.title) {
-      document.title = setting.title
-    }
+    document.title = settingStore.siteTitle
   }).catch(e => {
     console.error(e)
   })

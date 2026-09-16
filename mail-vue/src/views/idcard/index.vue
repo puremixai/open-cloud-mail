@@ -123,7 +123,7 @@
 
             <!-- 背面 -->
             <div class="sid-face sid-back">
-              <div class="sid-stripe"><span>CLOUD MAIL STUDENT CARD</span></div>
+              <div class="sid-stripe"><span>PUREMAIL STUDENT CARD</span></div>
               <div class="sid-back-main">
                 <div class="sid-notes">
                   <div class="sid-notes-title">{{ $t('idcardNotesTitle') }}</div>

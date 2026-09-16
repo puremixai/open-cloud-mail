@@ -1,8 +1,8 @@
 <p align="center">
-  <img src="doc/demo/logo.png" width="80" alt="Open CloudMail 标志" />
+  <img src="doc/demo/logo.png" width="80" alt="PureMail 标志" />
 </p>
 
-<h1 align="center">Open CloudMail</h1>
+<h1 align="center">PureMail</h1>
 
 <p align="center">基于 Cloudflare Workers 的自托管邮箱，提供 Win95 复古桌面与现代邮件工作区。</p>
 
@@ -12,16 +12,16 @@
 
 <p align="center">
   <a href="LICENSE"><img src="https://img.shields.io/badge/license-MIT-green" alt="MIT License" /></a>
-  <a href="https://github.com/puremixai/open-cloudmail/issues"><img src="https://img.shields.io/github/issues/puremixai/open-cloudmail" alt="Issues" /></a>
-  <a href="https://github.com/puremixai/open-cloudmail/stargazers"><img src="https://img.shields.io/github/stars/puremixai/open-cloudmail" alt="Stars" /></a>
+  <a href="https://github.com/puremixai/puremail/issues"><img src="https://img.shields.io/github/issues/puremixai/puremail" alt="Issues" /></a>
+  <a href="https://github.com/puremixai/puremail/stargazers"><img src="https://img.shields.io/github/stars/puremixai/puremail" alt="Stars" /></a>
 </p>
 
 ## 项目来源
 
-**Open CloudMail 是基于 [maillab/cloud-mail](https://github.com/maillab/cloud-mail)（Cloud Mail）修改的衍生项目**，在上游的邮箱收发、用户管理和 Cloudflare 部署能力之上，持续改进界面、社区登录、邮件隐私与收发可靠性。感谢原作者和上游贡献者。
+**PureMail 是基于 [maillab/cloud-mail](https://github.com/maillab/cloud-mail)（Cloud Mail）修改的衍生项目**，在上游的邮箱收发、用户管理和 Cloudflare 部署能力之上，持续改进界面、社区登录、邮件隐私与收发可靠性。感谢原作者和上游贡献者。
 
-- 本项目仓库：[puremixai/open-cloudmail](https://github.com/puremixai/open-cloudmail)
-- 本项目反馈：[Issues](https://github.com/puremixai/open-cloudmail/issues)
+- 本项目仓库：[puremixai/puremail](https://github.com/puremixai/puremail)
+- 本项目反馈：[Issues](https://github.com/puremixai/puremail/issues)
 - 上游部署参考：[Cloud Mail 文档](https://doc.skymail.ink)；本分支的配置和功能以当前代码及下文为准。
 
 上游的演示站、社区和赞助渠道由上游维护，不代表本项目的部署或维护入口。本仓库保留上游 MIT 许可证与原始版权声明。
@@ -52,6 +52,8 @@
 
 以下为本分支的本地预览截图，使用合成邮箱和邮件数据。
 
+部分截图制作于 PureMail 更名前，画面中的旧项目名称仅作为历史界面记录保留。
+
 | Win95 邮件工作区 | 现代浅色主题 |
 | --- | --- |
 | ![Win95 邮件阅读](docs/product-design-2026-09-06/reading-win95-desktop.png) | ![现代浅色邮件阅读](docs/product-design-2026-09-06/reading-light-desktop.png) |
@@ -77,8 +79,8 @@
 当前 CI 使用 **Node.js 24 和 pnpm 11**，本地可使用相同版本。以下命令在仓库根目录执行，适用于 PowerShell。
 
 ```powershell
-git clone https://github.com/puremixai/open-cloudmail.git
-cd open-cloudmail
+git clone https://github.com/puremixai/puremail.git
+cd puremail
 pnpm --dir mail-worker install --frozen-lockfile
 pnpm --dir mail-vue install --frozen-lockfile
 ```
@@ -113,6 +115,8 @@ pnpm --dir mail-vue dev
 
 本地联调使用 Wrangler 的本地资源；真实邮件接收、发送、对象存储和 OAuth 需要另行配置相应服务。
 
+连接远程部署时，在 `mail-vue/.env.remote.local` 中设置 `VITE_BASE_URL=https://<你的站点域名>/api`，再运行 `pnpm --dir mail-vue remote`。仓库中的远程地址为示例占位符。
+
 ### 测试与构建
 
 ```powershell
@@ -136,7 +140,7 @@ pnpm --dir mail-vue build
 | `DOMAIN` | 是 | 邮件域名的 JSON 数组，例如 `["example.com"]` |
 | `ADMIN` | 是 | 管理员邮箱，例如 `admin@example.com`；域名应包含在 `DOMAIN` 中 |
 | `JWT_SECRET` | 是 | 自行生成的随机密钥；当前工作流不接受 `?`、`%`、`#`、`/` 和反斜杠，建议使用随机十六进制字符串 |
-| `NAME` | 否 | Worker 名称，默认 `cloud-mail` |
+| `NAME` | 否 | Worker 名称，默认 `cloud-mail`；这是既有部署资源名，不随项目品牌重命名 |
 | `CUSTOM_DOMAIN` | 否 | Web 访问域名，例如 `mail.example.com`，不含协议；与邮件域名可以不同 |
 | `D1_DATABASE_ID` | 否 | 复用已有 D1 数据库；留空时工作流按 `NAME` 查找或创建 |
 | `KV_NAMESPACE_ID` | 否 | 复用已有 KV 命名空间；留空时工作流按 `NAME` 查找或创建 |
@@ -184,7 +188,7 @@ https://<邮箱站点的 Web 域名>/api/oauth/xai/callback
 ## 目录结构
 
 ```text
-open-cloudmail/
+puremail/
 ├── mail-vue/                 # Vue 前端
 │   ├── src/                  # 页面、组件、主题、状态和请求
 │   ├── test/                 # 前端回归测试

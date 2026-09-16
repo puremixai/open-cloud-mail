@@ -1,8 +1,8 @@
 <p align="center">
-  <img src="doc/demo/logo.png" width="80" alt="Open CloudMail logo" />
+  <img src="doc/demo/logo.png" width="80" alt="PureMail logo" />
 </p>
 
-<h1 align="center">Open CloudMail</h1>
+<h1 align="center">PureMail</h1>
 
 <p align="center">A self-hosted email service powered by Cloudflare Workers, with a retro Windows 95 desktop and a modern mail workspace.</p>
 
@@ -12,16 +12,16 @@
 
 <p align="center">
   <a href="LICENSE"><img src="https://img.shields.io/badge/license-MIT-green" alt="MIT License" /></a>
-  <a href="https://github.com/puremixai/open-cloudmail/issues"><img src="https://img.shields.io/github/issues/puremixai/open-cloudmail" alt="Issues" /></a>
-  <a href="https://github.com/puremixai/open-cloudmail/stargazers"><img src="https://img.shields.io/github/stars/puremixai/open-cloudmail" alt="Stars" /></a>
+  <a href="https://github.com/puremixai/puremail/issues"><img src="https://img.shields.io/github/issues/puremixai/puremail" alt="Issues" /></a>
+  <a href="https://github.com/puremixai/puremail/stargazers"><img src="https://img.shields.io/github/stars/puremixai/puremail" alt="Stars" /></a>
 </p>
 
 ## Project Origins
 
-**Open CloudMail is a derivative of [maillab/cloud-mail](https://github.com/maillab/cloud-mail) (Cloud Mail).** Building on the upstream project's email sending and receiving, user management, and Cloudflare deployment capabilities, this project continues to improve the interface, community sign-in options, email privacy, and delivery reliability. We thank the original author and upstream contributors.
+**PureMail is a derivative of [maillab/cloud-mail](https://github.com/maillab/cloud-mail) (Cloud Mail).** Building on the upstream project's email sending and receiving, user management, and Cloudflare deployment capabilities, this project continues to improve the interface, community sign-in options, email privacy, and delivery reliability. We thank the original author and upstream contributors.
 
-- Project repository: [puremixai/open-cloudmail](https://github.com/puremixai/open-cloudmail)
-- Issue tracker: [Issues](https://github.com/puremixai/open-cloudmail/issues)
+- Project repository: [puremixai/puremail](https://github.com/puremixai/puremail)
+- Issue tracker: [Issues](https://github.com/puremixai/puremail/issues)
 - Upstream deployment reference: [Cloud Mail documentation](https://doc.skymail.ink). For this fork, refer to the current code and the configuration and feature descriptions below.
 
 The upstream demo site, community, and sponsorship channels are maintained by the upstream project and are not deployment or maintenance channels for this project. This repository retains the upstream MIT license and original copyright notice.
@@ -52,6 +52,8 @@ Available features depend on administrator settings, role permissions, and conne
 
 The screenshots below show this fork running locally with synthetic mailbox and message data.
 
+Some screenshots predate the PureMail rename. Any former project name visible in them is retained as part of the historical interface record.
+
 | Windows 95 mail workspace | Modern light theme |
 | --- | --- |
 | ![Reading email in Windows 95 theme](docs/product-design-2026-09-06/reading-win95-desktop.png) | ![Reading email in modern light theme](docs/product-design-2026-09-06/reading-light-desktop.png) |
@@ -77,8 +79,8 @@ Production builds output the frontend to `mail-worker/dist` by default. The same
 The current CI environment uses **Node.js 24 and pnpm 11**; you can use the same versions locally. Run the following commands from the repository root. They are written for PowerShell.
 
 ```powershell
-git clone https://github.com/puremixai/open-cloudmail.git
-cd open-cloudmail
+git clone https://github.com/puremixai/puremail.git
+cd puremail
 pnpm --dir mail-worker install --frozen-lockfile
 pnpm --dir mail-vue install --frozen-lockfile
 ```
@@ -113,6 +115,8 @@ Open the [Windows 95 design preview](http://localhost:3001/design-preview.html?t
 
 Local full-stack development uses Wrangler's local resources. Actual email receiving and sending, object storage, and OAuth require separate configuration of the corresponding services.
 
+To connect to a remote deployment, set `VITE_BASE_URL=https://<your-site-domain>/api` in `mail-vue/.env.remote.local`, then run `pnpm --dir mail-vue remote`. The remote URL shipped in the repository is a placeholder.
+
 ### Tests and Builds
 
 ```powershell
@@ -136,7 +140,7 @@ The repository includes a [deployment workflow](.github/workflows/deploy-cloudfl
 | `DOMAIN` | Yes | JSON array of email domains, for example `["example.com"]` |
 | `ADMIN` | Yes | Administrator email address, for example `admin@example.com`; its domain must be included in `DOMAIN` |
 | `JWT_SECRET` | Yes | A random secret you generate. The current workflow does not accept `?`, `%`, `#`, `/`, or backslashes; a random hexadecimal string is recommended |
-| `NAME` | No | Worker name; defaults to `cloud-mail` |
+| `NAME` | No | Worker name; defaults to `cloud-mail`, an existing deployment resource name that is unchanged by the project rename |
 | `CUSTOM_DOMAIN` | No | Web access domain, for example `mail.example.com`, without the protocol; it may differ from the email domain |
 | `D1_DATABASE_ID` | No | Reuse an existing D1 database. If omitted, the workflow finds or creates one using `NAME` |
 | `KV_NAMESPACE_ID` | No | Reuse an existing KV namespace. If omitted, the workflow finds or creates one using `NAME` |
@@ -184,7 +188,7 @@ The callback must have the same origin as the actual sign-in site. The XAI Clien
 ## Directory Structure
 
 ```text
-open-cloudmail/
+puremail/
 ├── mail-vue/                 # Vue frontend
 │   ├── src/                  # Pages, components, themes, state, and requests
 │   ├── test/                 # Frontend regression tests

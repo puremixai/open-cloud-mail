@@ -9,6 +9,9 @@ export const useSettingStore = defineStore('setting', {
         },
         lang: '',
     }),
+    getters: {
+        siteTitle: (state) => state.settings.title || 'PureMail',
+    },
     actions: {
 
     },

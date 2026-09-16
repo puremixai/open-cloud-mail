@@ -16,7 +16,7 @@
         <div class="w95-idcard-face w95-idcard-front" :inert="idcardBank || detailsOpen ? '' : null" :aria-hidden="idcardBank || detailsOpen">
           <div class="w95-idcard-head">
             <span class="w95-idcard-mono" aria-hidden="true">{{ idcardMono }}</span>
-            <span class="w95-idcard-brand" :title="settingStore.settings.title">{{ settingStore.settings.title || 'MAIL' }}</span>
+            <span class="w95-idcard-brand" :title="settingStore.siteTitle">{{ settingStore.siteTitle }}</span>
           </div>
           <div class="w95-idcard-primary">
             <div class="w95-idcard-label">{{ $t('win95IdcardEmailLabel') }}</div>
@@ -62,7 +62,7 @@
               <path d="M5 6.4h6v3.2H5z" fill="#fff"/>
               <path d="M5 6.4l3 1.8 3-1.8" stroke="#e4342f" stroke-width=".7" fill="none"/>
             </svg>
-            <span :title="settingStore.settings.title">{{ settingStore.settings.title || 'MAIL' }}</span>
+            <span :title="settingStore.siteTitle">{{ settingStore.siteTitle }}</span>
           </div>
           <div class="w95-bank-tier">{{ $t('idcardDeptValue') }}</div>
           <span class="w95-bank-holo" aria-hidden="true"></span>
